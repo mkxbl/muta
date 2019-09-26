@@ -47,7 +47,6 @@ impl<Adapter> HashMemPool<Adapter>
 where
     Adapter: MemPoolAdapter,
 {
-    #[allow(dead_code)]
     pub fn new(
         pool_size: usize,
         timeout_gap: u64,
@@ -57,7 +56,7 @@ where
         HashMemPool {
             pool_size,
             timeout_gap,
-            tx_cache: TxCache::new(pool_size),
+            tx_cache: TxCache::new(pool_size * 2),
             callback_cache: Map::new(pool_size),
             adapter,
             current_epoch_id: AtomicU64::new(current_epoch_id),

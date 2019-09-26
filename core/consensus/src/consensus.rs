@@ -83,8 +83,6 @@ impl<Adapter: ConsensusAdapter + 'static> Consensus for OverlordConsensus<Adapte
             }
         }
 
-        // Need to synchronization.
-        self.engine.lock.lock().await;
         let mut prev_hash = self
             .engine
             .get_epoch_by_id(ctx.clone(), current_epoch_id + 1)
@@ -92,13 +90,29 @@ impl<Adapter: ConsensusAdapter + 'static> Consensus for OverlordConsensus<Adapte
             .header
             .pre_hash;
 
+        // Check epoch for the first time.
+        let epoch_header = self
+            .engine
+            .pull_epoch(ctx.clone(), current_epoch_id + 1)
+            .await?
+            .header;
+        self.check_proof(current_epoch_id + 1, epoch_header.proof.clone())?;
+        if prev_hash != epoch_header.pre_hash {
+            return Err(ConsensusError::SyncEpochHashErr(current_epoch_id + 1).into());
+        }
+
+        // Lock the consensus engine, block commit process.
+        self.engine.lock.lock().await;
+
+        // Start to synchronization.
         for id in (current_epoch_id + 1)..=rich_epoch_id {
             // First pull a new block.
             let epoch = self.engine.pull_epoch(ctx.clone(), id).await?;
             let tmp_prev_hash = epoch.header.pre_hash.clone();
 
             // Check proof and previous hash.
-            self.check_proof(id, epoch.header.proof.clone())?;
+            let proof = epoch.header.proof.clone();
+            self.check_proof(id, proof.clone())?;
             if prev_hash != epoch.header.pre_hash {
                 return Err(ConsensusError::SyncEpochHashErr(id).into());
             }
@@ -114,15 +128,16 @@ impl<Adapter: ConsensusAdapter + 'static> Consensus for OverlordConsensus<Adapte
             // 2. Save the signed transactions.
             // 3. Save the latest proof.
             // 4. Save the new epoch.
-            let _ = self
+            let exec_resp = self
                 .engine
                 .exec(Address::User(epoch.header.proposer.clone()), txs.clone())
                 .await?;
-            self.engine.save_signed_txs(txs).await?;
-            self.engine.save_proof(epoch.header.proof.clone()).await?;
-            self.engine.save_epoch(epoch).await?;
 
-            // Update the previous hash for next check.
+            self.engine
+                .update_status(id, epoch, proof, exec_resp, txs)
+                .await?;
+
+            // Update the previous hash and last epoch.
             prev_hash = tmp_prev_hash;
         }
         Ok(())

@@ -3,6 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{error::Error, sync::Arc};
 
 use async_trait::async_trait;
+use bincode::serialize;
 use bytes::Bytes;
 use futures::lock::Mutex;
 use overlord::types::{Commit, Node, OverlordMsg, Status};
@@ -20,9 +21,10 @@ use protocol::types::{
 };
 use protocol::{ProtocolError, ProtocolResult};
 
-use crate::fixed_types::{FixedPill, FixedSignedTxs};
+use crate::fixed_types::{FixedEpochID, FixedPill, FixedSignedTxs};
 use crate::message::{
-    END_GOSSIP_AGGREGATED_VOTE, END_GOSSIP_SIGNED_PROPOSAL, END_GOSSIP_SIGNED_VOTE, RPC_SYNC_PULL,
+    END_GOSSIP_AGGREGATED_VOTE, END_GOSSIP_RICH_EPOCH_ID, END_GOSSIP_SIGNED_PROPOSAL,
+    END_GOSSIP_SIGNED_VOTE, RPC_SYNC_PULL,
 };
 use crate::ConsensusError;
 
@@ -157,6 +159,11 @@ impl<Adapter: ConsensusAdapter + 'static> Engine<FixedPill, FixedSignedTxs>
             .get_full_txs(ctx.clone(), pill.epoch.ordered_tx_hashes.clone())
             .await?;
 
+        // TODO: parallelism
+        self.adapter
+            .flush_mempool(ctx.clone(), pill.epoch.ordered_tx_hashes.clone())
+            .await?;
+
         // Execute transactions
         let node_info = self.node_info.clone();
         let status = self.current_consensus_status.read().clone();
@@ -166,33 +173,26 @@ impl<Adapter: ConsensusAdapter + 'static> Engine<FixedPill, FixedSignedTxs>
             .execute(ctx.clone(), node_info, status, coinbase, full_txs.clone())
             .await?;
 
-        // Save receipts
+        // Broadcast rich epoch ID
+        let msg = serialize(&FixedEpochID::new(epoch_id + 1)).map_err(|_| {
+            ProtocolError::from(ConsensusError::Other(
+                "Encode rich epoch ID error".to_string(),
+            ))
+        })?;
         self.adapter
-            .save_receipts(ctx.clone(), exec_resp.receipts.clone())
-            .await?;
-        // Save signed transactions
-        self.adapter
-            .save_signed_txs(ctx.clone(), full_txs.clone())
-            .await?;
-
-        // Save the epoch.
-        let mut epoch = pill.epoch;
-        self.adapter.save_epoch(ctx.clone(), epoch.clone()).await?;
-
-        self.adapter
-            .flush_mempool(ctx.clone(), epoch.ordered_tx_hashes.clone())
+            .transmit(
+                ctx.clone(),
+                msg,
+                END_GOSSIP_RICH_EPOCH_ID,
+                MessageTarget::Broadcast,
+            )
             .await?;
 
-        let prev_hash = Hash::digest(epoch.encode().await?);
+        self.update_status(epoch_id, pill.epoch, proof, exec_resp, full_txs)
+            .await?;
 
-        // TODO: update current consensus status
         let current_consensus_status = {
-            let mut current_consensus_status = self.current_consensus_status.write();
-            current_consensus_status.epoch_id = epoch_id + 1;
-            current_consensus_status.prev_hash = prev_hash;
-            current_consensus_status.proof = proof;
-            current_consensus_status.state_root = exec_resp.state_root.clone();
-
+            let current_consensus_status = self.current_consensus_status.read();
             current_consensus_status.clone()
         };
 
@@ -309,18 +309,6 @@ impl<Adapter: ConsensusAdapter + 'static> ConsensusEngine<Adapter> {
         self.adapter.get_epoch_by_id(ctx, epoch_id).await
     }
 
-    pub async fn save_signed_txs(&self, txs: Vec<SignedTransaction>) -> ProtocolResult<()> {
-        self.adapter.save_signed_txs(Context::new(), txs).await
-    }
-
-    pub async fn save_proof(&self, proof: Proof) -> ProtocolResult<()> {
-        self.adapter.save_proof(Context::new(), proof).await
-    }
-
-    pub async fn save_epoch(&self, epoch: Epoch) -> ProtocolResult<()> {
-        self.adapter.save_epoch(Context::new(), epoch).await
-    }
-
     pub async fn exec(
         &self,
         address: Address,
@@ -333,6 +321,39 @@ impl<Adapter: ConsensusAdapter + 'static> ConsensusEngine<Adapter> {
         self.adapter
             .execute(Context::new(), self.node_info.clone(), status, address, txs)
             .await
+    }
+
+    /// **TODO:** update current consensus status
+    pub async fn update_status(
+        &self,
+        epoch_id: u64,
+        mut epoch: Epoch,
+        proof: Proof,
+        exec_resp: ExecutorExecResp,
+        txs: Vec<SignedTransaction>,
+    ) -> ProtocolResult<()> {
+        // Save receipts
+        self.adapter
+            .save_receipts(Context::new(), exec_resp.receipts.clone())
+            .await?;
+        // Save signed transactions
+        self.adapter.save_signed_txs(Context::new(), txs).await?;
+
+        // Save the epoch.
+        self.adapter
+            .save_epoch(Context::new(), epoch.clone())
+            .await?;
+
+        let prev_hash = Hash::digest(epoch.encode().await?);
+        {
+            let mut current_consensus_status = self.current_consensus_status.write();
+            current_consensus_status.epoch_id = epoch_id + 1;
+            current_consensus_status.prev_hash = prev_hash;
+            current_consensus_status.proof = proof;
+            current_consensus_status.state_root = exec_resp.state_root.clone();
+        }
+
+        Ok(())
     }
 }
 

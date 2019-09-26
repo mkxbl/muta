@@ -7,10 +7,12 @@ use overlord::Codec;
 use rlp::Encodable;
 use serde::{Deserialize, Serialize};
 
-use protocol::traits::{Consensus, Context, MessageHandler};
+use protocol::traits::{Consensus, Context, MessageHandler, Priority, Rpc, Storage};
 use protocol::ProtocolResult;
 
-use crate::fixed_types::FixedEpochID;
+use crate::fixed_types::{
+    ConsensusRpcRequest, ConsensusRpcResponse, FixedEpoch, FixedEpochID, FixedSignedTxs,
+};
 
 pub const END_GOSSIP_SIGNED_PROPOSAL: &str = "/gossip/consensus/signed_proposal";
 pub const END_GOSSIP_SIGNED_VOTE: &str = "/gossip/consensus/signed_vote";
@@ -127,5 +129,59 @@ impl<C: Consensus + 'static> MessageHandler for RichEpochIDMessageHandler<C> {
 
     async fn process(&self, ctx: Context, msg: Self::Message) -> ProtocolResult<()> {
         self.consensus.update_epoch(ctx, msg.0).await
+    }
+}
+
+#[derive(Debug)]
+pub struct RpcHandler<R, S> {
+    rpc:     Arc<R>,
+    storage: Arc<S>,
+}
+
+#[async_trait]
+impl<R: Rpc + 'static, S: Storage + 'static> MessageHandler for RpcHandler<R, S> {
+    type Message = ConsensusRpcRequest;
+
+    async fn process(&self, ctx: Context, msg: ConsensusRpcRequest) -> ProtocolResult<()> {
+        match msg {
+            ConsensusRpcRequest::PullEpochs(ep) => {
+                let res = self.storage.get_epoch_by_epoch_id(ep.inner).await?;
+
+                self.rpc
+                    .response(
+                        ctx,
+                        RPC_SYNC_PULL,
+                        ConsensusRpcResponse::PullEpochs(Box::new(FixedEpoch::new(res))),
+                        Priority::High,
+                    )
+                    .await
+            }
+
+            ConsensusRpcRequest::PullTxs(txs) => {
+                let mut res = Vec::new();
+                for tx in txs.inner.into_iter() {
+                    res.push(self.storage.get_transaction_by_hash(tx).await?);
+                }
+
+                self.rpc
+                    .response(
+                        ctx,
+                        RPC_SYNC_PULL,
+                        ConsensusRpcResponse::PullTxs(Box::new(FixedSignedTxs::new(res))),
+                        Priority::High,
+                    )
+                    .await
+            }
+        }
+    }
+}
+
+impl<R, S> RpcHandler<R, S>
+where
+    R: Rpc + 'static,
+    S: Storage + 'static,
+{
+    pub fn new(rpc: Arc<R>, storage: Arc<S>) -> Self {
+        RpcHandler { rpc, storage }
     }
 }

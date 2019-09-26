@@ -15,6 +15,12 @@ pub enum ConsensusRpcRequest {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum ConsensusRpcResponse {
+    PullEpochs(Box<FixedEpoch>),
+    PullTxs(Box<FixedSignedTxs>),
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FixedEpochID {
     pub inner: u64,
 }
@@ -38,14 +44,14 @@ impl PullTxsRequest {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct FixedEpochs {
+pub struct FixedEpoch {
     #[serde(with = "core_network::serde")]
     pub inner: Epoch,
 }
 
-impl FixedEpochs {
+impl FixedEpoch {
     pub fn new(inner: Epoch) -> Self {
-        FixedEpochs { inner }
+        FixedEpoch { inner }
     }
 }
 

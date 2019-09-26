@@ -11,9 +11,8 @@ use protocol::traits::{
 use protocol::types::{Address, Epoch, Hash, Proof, Receipt, SignedTransaction, Validator};
 use protocol::ProtocolResult;
 
-use crate::fixed_types::{
-    ConsensusRpcRequest, FixedEpochID, FixedEpochs, FixedSignedTxs, PullTxsRequest,
-};
+use crate::fixed_types::{ConsensusRpcRequest, ConsensusRpcResponse, FixedEpochID, PullTxsRequest};
+use crate::{ConsensusError, MsgType};
 
 pub struct OverlordConsensusAdapter<
     EF: ExecutorFactory<DB>,
@@ -150,7 +149,7 @@ where
         let msg = FixedEpochID::new(epoch_id);
         let res = self
             .rpc
-            .call::<ConsensusRpcRequest, FixedEpochs>(
+            .call::<ConsensusRpcRequest, ConsensusRpcResponse>(
                 ctx,
                 end,
                 ConsensusRpcRequest::PullEpochs(msg),
@@ -158,7 +157,10 @@ where
             )
             .await?;
 
-        Ok(res.inner)
+        match res {
+            ConsensusRpcResponse::PullEpochs(epoch) => Ok(epoch.inner),
+            _ => Err(ConsensusError::RpcErr(MsgType::RpcPullEpochs).into()),
+        }
     }
 
     async fn pull_txs(
@@ -170,7 +172,7 @@ where
         let msg = PullTxsRequest::new(hashes);
         let res = self
             .rpc
-            .call::<ConsensusRpcRequest, FixedSignedTxs>(
+            .call::<ConsensusRpcRequest, ConsensusRpcResponse>(
                 ctx,
                 end,
                 ConsensusRpcRequest::PullTxs(msg),
@@ -178,7 +180,10 @@ where
             )
             .await?;
 
-        Ok(res.inner)
+        match res {
+            ConsensusRpcResponse::PullTxs(txs) => Ok(txs.inner),
+            _ => Err(ConsensusError::RpcErr(MsgType::RpcPullTxs).into()),
+        }
     }
 
     async fn get_epoch_by_id(&self, _ctx: Context, epoch_id: u64) -> ProtocolResult<Epoch> {

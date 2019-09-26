@@ -30,6 +30,12 @@ pub enum MsgType {
 
     #[display(fmt = "Rich Epoch ID")]
     RichEpochID,
+
+    #[display(fmt = "Rpc Pull Epochs")]
+    RpcPullEpochs,
+
+    #[display(fmt = "Rpc Pull Transactions")]
+    RpcPullTxs,
 }
 
 /// Consensus errors defines here.
@@ -63,11 +69,17 @@ pub enum ConsensusError {
     #[display(fmt = "Crypto error {:?}", _0)]
     CryptoErr(Box<CryptoError>),
 
-    ///
+    /// The synchronous epoch does not pass the checks.
+    #[display(fmt = "Synchronization {} epoch error", _0)]
     SyncEpochHashErr(u64),
 
-    ///
+    /// The synchronous epoch proof does not pass the checks.
+    #[display(fmt = "Synchronization {} proof error", _0)]
     SyncEpochProofErr(u64),
+
+    /// The Rpc response mismatch the request.
+    #[display(fmt = "Synchronization Rpc {:?} message mismatch", _0)]
+    RpcErr(MsgType),
 
     /// Other error used for very few errors.
     #[display(fmt = "{:?}", _0)]

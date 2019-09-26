@@ -1,22 +1,16 @@
 use std::error::Error;
-use std::sync::Arc;
 
-use async_trait::async_trait;
 use bytes::Bytes;
-use creep::Context;
 use overlord::{types::AggregatedSignature, Crypto};
-
-use protocol::traits::{MessageHandler, Priority, Rpc, Storage};
-use protocol::types::{Hash, UserAddress};
-use protocol::{ProtocolError, ProtocolResult};
 
 use common_crypto::{
     Crypto as Secp256k1Crypto, PrivateKey, PublicKey, Secp256k1, Secp256k1PrivateKey,
     Secp256k1PublicKey, Signature,
 };
 
-use crate::fixed_types::{ConsensusRpcRequest, FixedEpochs, FixedSignedTxs};
-use crate::message::RPC_SYNC_PULL;
+use protocol::types::{Hash, UserAddress};
+use protocol::ProtocolError;
+
 use crate::ConsensusError;
 
 #[derive(Clone, Debug)]
@@ -77,49 +71,5 @@ impl OverlordCrypto {
             public_key,
             private_key,
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct RpcHandler<R, S> {
-    rpc:     Arc<R>,
-    storage: Arc<S>,
-}
-
-#[async_trait]
-impl<R: Rpc + 'static, S: Storage + 'static> MessageHandler for RpcHandler<R, S> {
-    type Message = ConsensusRpcRequest;
-
-    async fn process(&self, ctx: Context, msg: ConsensusRpcRequest) -> ProtocolResult<()> {
-        match msg {
-            ConsensusRpcRequest::PullEpochs(ep) => {
-                let res = self.storage.get_epoch_by_epoch_id(ep.inner).await?;
-
-                self.rpc
-                    .response(ctx, RPC_SYNC_PULL, FixedEpochs::new(res), Priority::High)
-                    .await
-            }
-
-            ConsensusRpcRequest::PullTxs(txs) => {
-                let mut res = Vec::new();
-                for tx in txs.inner.into_iter() {
-                    res.push(self.storage.get_transaction_by_hash(tx).await?);
-                }
-                self.rpc
-                    .response(ctx, RPC_SYNC_PULL, FixedSignedTxs::new(res), Priority::High)
-                    .await
-            }
-        }
-    }
-}
-
-impl<R, S> RpcHandler<R, S>
-where
-    R: Rpc + 'static,
-    S: Storage + 'static,
-{
-    #![allow(dead_code)]
-    pub fn new(rpc: Arc<R>, storage: Arc<S>) -> Self {
-        RpcHandler { rpc, storage }
     }
 }
