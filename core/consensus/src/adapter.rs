@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use protocol::traits::executor::{ExecutorExecResp, ExecutorFactory, TrieDB};
 use protocol::traits::{
     ConsensusAdapter, Context, CurrentConsensusStatus, Gossip, MemPool, MessageTarget,
-    MixedTxHashes, NodeInfo, Priority, Storage, Rpc,
+    MixedTxHashes, NodeInfo, Priority, Rpc, Storage,
 };
 use protocol::types::{Address, Epoch, Hash, Proof, Receipt, SignedTransaction, Validator};
 use protocol::ProtocolResult;
@@ -195,7 +195,13 @@ where
     S: Storage,
     DB: TrieDB,
 {
-    pub fn new(rpc: Arc<R>, network: Arc<G>, mempool: Arc<M>, storage: Arc<S>, trie_db: Arc<DB>) -> Self {
+    pub fn new(
+        rpc: Arc<R>,
+        network: Arc<G>,
+        mempool: Arc<M>,
+        storage: Arc<S>,
+        trie_db: Arc<DB>,
+    ) -> Self {
         OverlordConsensusAdapter {
             rpc,
             network,

@@ -1,13 +1,16 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use bincode::serialize;
 use overlord::types::{AggregatedVote, SignedProposal, SignedVote};
 use overlord::Codec;
-use rlp::encode;
+use rlp::Encodable;
 use serde::{Deserialize, Serialize};
 
 use protocol::traits::{Consensus, Context, MessageHandler};
 use protocol::ProtocolResult;
+
+use crate::fixed_types::FixedEpochID;
 
 pub const END_GOSSIP_SIGNED_PROPOSAL: &str = "/gossip/consensus/signed_proposal";
 pub const END_GOSSIP_SIGNED_VOTE: &str = "/gossip/consensus/signed_vote";
@@ -21,7 +24,7 @@ pub struct Proposal(pub Vec<u8>);
 
 impl<C: Codec> From<SignedProposal<C>> for Proposal {
     fn from(proposal: SignedProposal<C>) -> Self {
-        Proposal(encode(&proposal))
+        Proposal(proposal.rlp_bytes())
     }
 }
 
@@ -30,7 +33,7 @@ pub struct Vote(pub Vec<u8>);
 
 impl From<SignedVote> for Vote {
     fn from(vote: SignedVote) -> Self {
-        Vote(encode(&vote))
+        Vote(vote.rlp_bytes())
     }
 }
 
@@ -39,7 +42,16 @@ pub struct QC(pub Vec<u8>);
 
 impl From<AggregatedVote> for QC {
     fn from(aggregated_vote: AggregatedVote) -> Self {
-        QC(encode(&aggregated_vote))
+        QC(aggregated_vote.rlp_bytes())
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct RichEpochID(pub Vec<u8>);
+
+impl From<FixedEpochID> for RichEpochID {
+    fn from(id: FixedEpochID) -> Self {
+        RichEpochID(serialize(&id).unwrap())
     }
 }
 
@@ -97,5 +109,24 @@ impl<C: Consensus + 'static> MessageHandler for QCMessageHandler<C> {
 
     async fn process(&self, ctx: Context, msg: Self::Message) -> ProtocolResult<()> {
         self.consensus.set_qc(ctx, msg.0).await
+    }
+}
+
+pub struct RichEpochIDMessageHandler<C> {
+    consensus: Arc<C>,
+}
+
+impl<C: Consensus + 'static> RichEpochIDMessageHandler<C> {
+    pub fn new(consensus: Arc<C>) -> Self {
+        Self { consensus }
+    }
+}
+
+#[async_trait]
+impl<C: Consensus + 'static> MessageHandler for RichEpochIDMessageHandler<C> {
+    type Message = RichEpochID;
+
+    async fn process(&self, ctx: Context, msg: Self::Message) -> ProtocolResult<()> {
+        self.consensus.update_epoch(ctx, msg.0).await
     }
 }

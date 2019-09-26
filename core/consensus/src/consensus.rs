@@ -12,7 +12,7 @@ use parking_lot::RwLock;
 use common_crypto::{PrivateKey, Secp256k1PrivateKey};
 
 use protocol::traits::{Consensus, ConsensusAdapter, CurrentConsensusStatus, NodeInfo};
-use protocol::types::{Proof, Validator};
+use protocol::types::{Address, Proof, Validator};
 use protocol::ProtocolResult;
 
 use crate::engine::ConsensusEngine;
@@ -92,7 +92,7 @@ impl<Adapter: ConsensusAdapter + 'static> Consensus for OverlordConsensus<Adapte
             .header
             .pre_hash;
 
-        for id in (current_epoch_id + 1)..(rich_epoch_id + 1) {
+        for id in (current_epoch_id + 1)..=rich_epoch_id {
             // First pull a new block.
             let epoch = self.engine.pull_epoch(ctx.clone(), id).await?;
             let tmp_prev_hash = epoch.header.pre_hash.clone();
@@ -114,7 +114,10 @@ impl<Adapter: ConsensusAdapter + 'static> Consensus for OverlordConsensus<Adapte
             // 2. Save the signed transactions.
             // 3. Save the latest proof.
             // 4. Save the new epoch.
-            let _ = self.engine.exec(txs.clone()).await?;
+            let _ = self
+                .engine
+                .exec(Address::User(epoch.header.proposer.clone()), txs.clone())
+                .await?;
             self.engine.save_signed_txs(txs).await?;
             self.engine.save_proof(epoch.header.proof.clone()).await?;
             self.engine.save_epoch(epoch).await?;
@@ -122,7 +125,6 @@ impl<Adapter: ConsensusAdapter + 'static> Consensus for OverlordConsensus<Adapte
             // Update the previous hash for next check.
             prev_hash = tmp_prev_hash;
         }
-
         Ok(())
     }
 }

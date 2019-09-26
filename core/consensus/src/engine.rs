@@ -12,7 +12,8 @@ use rlp::Encodable;
 
 use protocol::codec::ProtocolCodec;
 use protocol::traits::{
-    ConsensusAdapter, Context, CurrentConsensusStatus, MessageTarget, NodeInfo,
+    executor::ExecutorExecResp, ConsensusAdapter, Context, CurrentConsensusStatus, MessageTarget,
+    NodeInfo,
 };
 use protocol::types::{
     Address, Epoch, EpochHeader, Hash, Pill, Proof, SignedTransaction, UserAddress, Validator,
@@ -323,8 +324,18 @@ impl<Adapter: ConsensusAdapter + 'static> ConsensusEngine<Adapter> {
         self.adapter.save_epoch(Context::new(), epoch).await
     }
 
-    pub async fn exec(&self, txs: Vec<SignedTransaction>) -> ProtocolResult<()> {
-        self.adapter.execute(Context::new(), txs).await
+    pub async fn exec(
+        &self,
+        address: Address,
+        txs: Vec<SignedTransaction>,
+    ) -> ProtocolResult<ExecutorExecResp> {
+        let status = {
+            let cur = self.current_consensus_status.read();
+            cur.clone()
+        };
+        self.adapter
+            .execute(Context::new(), self.node_info.clone(), status, address, txs)
+            .await
     }
 }
 

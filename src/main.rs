@@ -16,8 +16,9 @@ use core_consensus::adapter::OverlordConsensusAdapter;
 use core_consensus::consensus::OverlordConsensus;
 use core_consensus::fixed_types::FixedPill;
 use core_consensus::message::{
-    ProposalMessageHandler, QCMessageHandler, VoteMessageHandler, END_GOSSIP_AGGREGATED_VOTE,
-    END_GOSSIP_SIGNED_PROPOSAL, END_GOSSIP_SIGNED_VOTE,
+    ProposalMessageHandler, QCMessageHandler, RichEpochIDMessageHandler, VoteMessageHandler,
+    END_GOSSIP_AGGREGATED_VOTE, END_GOSSIP_RICH_EPOCH_ID, END_GOSSIP_SIGNED_PROPOSAL,
+    END_GOSSIP_SIGNED_VOTE,
 };
 use core_executor::trie::RocksTrieDB;
 use core_executor::TransactionExecutorFactory;
@@ -216,7 +217,9 @@ async fn start(cfg: &Config) -> ProtocolResult<()> {
         _,
         _,
         _,
+        _,
     >::new(
+        Arc::new(network_service.handle()),
         Arc::new(network_service.handle()),
         Arc::clone(&mempool),
         Arc::clone(&storage),
@@ -234,6 +237,7 @@ async fn start(cfg: &Config) -> ProtocolResult<()> {
             propose_hashes: vec![],
         },
     })));
+
     let current_consensus_status = CurrentConsensusStatus {
         cycles_price:       cfg.consensus.cycles_price,
         cycles_limit:       cfg.consensus.cycles_limit,
@@ -265,6 +269,7 @@ async fn start(cfg: &Config) -> ProtocolResult<()> {
         my_privkey,
         consensus_adapter,
     ));
+
     // register consensus
     network_service
         .register_endpoint_handler(
@@ -282,6 +287,14 @@ async fn start(cfg: &Config) -> ProtocolResult<()> {
         .register_endpoint_handler(
             END_GOSSIP_SIGNED_VOTE,
             Box::new(VoteMessageHandler::new(Arc::clone(&overlord_consensus))),
+        )
+        .unwrap();
+    network_service
+        .register_endpoint_handler(
+            END_GOSSIP_RICH_EPOCH_ID,
+            Box::new(RichEpochIDMessageHandler::new(Arc::clone(
+                &overlord_consensus,
+            ))),
         )
         .unwrap();
 
