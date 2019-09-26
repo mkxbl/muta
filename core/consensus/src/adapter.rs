@@ -6,18 +6,24 @@ use async_trait::async_trait;
 use protocol::traits::executor::{ExecutorExecResp, ExecutorFactory, TrieDB};
 use protocol::traits::{
     ConsensusAdapter, Context, CurrentConsensusStatus, Gossip, MemPool, MessageTarget,
-    MixedTxHashes, NodeInfo, Priority, Storage,
+    MixedTxHashes, NodeInfo, Priority, Storage, Rpc,
 };
 use protocol::types::{Address, Epoch, Hash, Proof, Receipt, SignedTransaction, Validator};
 use protocol::ProtocolResult;
+
+use crate::fixed_types::{
+    ConsensusRpcRequest, FixedEpochID, FixedEpochs, FixedSignedTxs, PullTxsRequest,
+};
 
 pub struct OverlordConsensusAdapter<
     EF: ExecutorFactory<DB>,
     G: Gossip,
     M: MemPool,
+    R: Rpc,
     S: Storage,
     DB: TrieDB,
 > {
+    rpc:     Arc<R>,
     network: Arc<G>,
     mempool: Arc<M>,
     storage: Arc<S>,
@@ -27,10 +33,11 @@ pub struct OverlordConsensusAdapter<
 }
 
 #[async_trait]
-impl<EF, G, M, S, DB> ConsensusAdapter for OverlordConsensusAdapter<EF, G, M, S, DB>
+impl<EF, G, M, R, S, DB> ConsensusAdapter for OverlordConsensusAdapter<EF, G, M, R, S, DB>
 where
     EF: ExecutorFactory<DB>,
     G: Gossip + Sync + Send,
+    R: Rpc + Sync + Send,
     M: MemPool,
     S: Storage,
     DB: TrieDB,
@@ -133,18 +140,64 @@ where
         let epoch = self.storage.get_epoch_by_epoch_id(epoch_id).await?;
         Ok(epoch.header.validators)
     }
+
+    async fn get_current_epoch_id(&self, _ctx: Context) -> ProtocolResult<u64> {
+        let res = self.storage.get_latest_proof().await?;
+        Ok(res.epoch_id)
+    }
+
+    async fn pull_epoch(&self, ctx: Context, epoch_id: u64, end: &str) -> ProtocolResult<Epoch> {
+        let msg = FixedEpochID::new(epoch_id);
+        let res = self
+            .rpc
+            .call::<ConsensusRpcRequest, FixedEpochs>(
+                ctx,
+                end,
+                ConsensusRpcRequest::PullEpochs(msg),
+                Priority::High,
+            )
+            .await?;
+
+        Ok(res.inner)
+    }
+
+    async fn pull_txs(
+        &self,
+        ctx: Context,
+        hashes: Vec<Hash>,
+        end: &str,
+    ) -> ProtocolResult<Vec<SignedTransaction>> {
+        let msg = PullTxsRequest::new(hashes);
+        let res = self
+            .rpc
+            .call::<ConsensusRpcRequest, FixedSignedTxs>(
+                ctx,
+                end,
+                ConsensusRpcRequest::PullTxs(msg),
+                Priority::High,
+            )
+            .await?;
+
+        Ok(res.inner)
+    }
+
+    async fn get_epoch_by_id(&self, _ctx: Context, epoch_id: u64) -> ProtocolResult<Epoch> {
+        self.storage.get_epoch_by_epoch_id(epoch_id).await
+    }
 }
 
-impl<EF, G, M, S, DB> OverlordConsensusAdapter<EF, G, M, S, DB>
+impl<EF, G, M, R, S, DB> OverlordConsensusAdapter<EF, G, M, R, S, DB>
 where
     EF: ExecutorFactory<DB>,
     G: Gossip + Sync + Send,
+    R: Rpc + Sync + Send,
     M: MemPool,
     S: Storage,
     DB: TrieDB,
 {
-    pub fn new(network: Arc<G>, mempool: Arc<M>, storage: Arc<S>, trie_db: Arc<DB>) -> Self {
+    pub fn new(rpc: Arc<R>, network: Arc<G>, mempool: Arc<M>, storage: Arc<S>, trie_db: Arc<DB>) -> Self {
         OverlordConsensusAdapter {
+            rpc,
             network,
             mempool,
             storage,

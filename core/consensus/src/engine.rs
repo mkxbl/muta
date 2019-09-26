@@ -14,12 +14,15 @@ use protocol::codec::ProtocolCodec;
 use protocol::traits::{
     ConsensusAdapter, Context, CurrentConsensusStatus, MessageTarget, NodeInfo,
 };
-use protocol::types::{Address, Epoch, EpochHeader, Hash, Pill, Proof, UserAddress, Validator};
-use protocol::ProtocolError;
+use protocol::types::{
+    Address, Epoch, EpochHeader, Hash, Pill, Proof, SignedTransaction, UserAddress, Validator,
+};
+use protocol::{ProtocolError, ProtocolResult};
 
 use crate::fixed_types::{FixedPill, FixedSignedTxs};
 use crate::message::{
     END_GOSSIP_AGGREGATED_VOTE, END_GOSSIP_SIGNED_PROPOSAL, END_GOSSIP_SIGNED_VOTE,
+    END_RPC_PULL_EPOCHS, END_RPC_PULL_TXS,
 };
 use crate::ConsensusError;
 
@@ -30,8 +33,8 @@ pub struct ConsensusEngine<Adapter> {
     node_info:                NodeInfo,
     exemption_hash:           RwLock<HashSet<Bytes>>,
 
-    adapter: Arc<Adapter>,
-    lock:    Mutex<()>,
+    adapter:  Arc<Adapter>,
+    pub lock: Mutex<()>,
 }
 
 #[async_trait]
@@ -284,6 +287,44 @@ impl<Adapter: ConsensusAdapter + 'static> ConsensusEngine<Adapter> {
             adapter,
             lock: Mutex::new(()),
         }
+    }
+
+    pub async fn get_current_epoch_id(&self, ctx: Context) -> ProtocolResult<u64> {
+        self.adapter.get_current_epoch_id(ctx).await
+    }
+
+    pub async fn pull_epoch(&self, ctx: Context, epoch_id: u64) -> ProtocolResult<Epoch> {
+        self.adapter
+            .pull_epoch(ctx, epoch_id, END_RPC_PULL_EPOCHS)
+            .await
+    }
+
+    pub async fn pull_txs(
+        &self,
+        ctx: Context,
+        hashes: Vec<Hash>,
+    ) -> ProtocolResult<Vec<SignedTransaction>> {
+        self.adapter.pull_txs(ctx, hashes, END_RPC_PULL_TXS).await
+    }
+
+    pub async fn get_epoch_by_id(&self, ctx: Context, epoch_id: u64) -> ProtocolResult<Epoch> {
+        self.adapter.get_epoch_by_id(ctx, epoch_id).await
+    }
+
+    pub async fn save_signed_txs(&self, txs: Vec<SignedTransaction>) -> ProtocolResult<()> {
+        self.adapter.save_signed_txs(Context::new(), txs).await
+    }
+
+    pub async fn save_proof(&self, proof: Proof) -> ProtocolResult<()> {
+        self.adapter.save_proof(Context::new(), proof).await
+    }
+
+    pub async fn save_epoch(&self, epoch: Epoch) -> ProtocolResult<()> {
+        self.adapter.save_epoch(Context::new(), epoch).await
+    }
+
+    pub async fn exec(&self, txs: Vec<SignedTransaction>) -> ProtocolResult<()> {
+        self.adapter.execute(Context::new(), txs).await
     }
 }
 

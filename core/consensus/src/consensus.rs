@@ -1,7 +1,10 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use async_trait::async_trait;
+use bincode::deserialize;
 use creep::Context;
+use futures_timer::Delay;
 use overlord::types::{AggregatedVote, Node, OverlordMsg, SignedProposal, SignedVote, Status};
 use overlord::{DurationConfig, Overlord, OverlordHandler};
 use parking_lot::RwLock;
@@ -9,13 +12,15 @@ use parking_lot::RwLock;
 use common_crypto::{PrivateKey, Secp256k1PrivateKey};
 
 use protocol::traits::{Consensus, ConsensusAdapter, CurrentConsensusStatus, NodeInfo};
-use protocol::types::{Epoch, Proof, SignedTransaction, Validator};
+use protocol::types::{Proof, Validator};
 use protocol::ProtocolResult;
 
 use crate::engine::ConsensusEngine;
-use crate::fixed_types::{FixedPill, FixedSignedTxs};
+use crate::fixed_types::{FixedEpochID, FixedPill, FixedSignedTxs};
 use crate::util::OverlordCrypto;
 use crate::{ConsensusError, MsgType};
+
+const BROADCAST_STATUS_INTERVAL: u64 = 3000;
 
 /// Provide consensus
 #[allow(dead_code)]
@@ -57,13 +62,67 @@ impl<Adapter: ConsensusAdapter + 'static> Consensus for OverlordConsensus<Adapte
         Ok(())
     }
 
-    async fn update_epoch(
-        &self,
-        _ctx: Context,
-        _epoch: Epoch,
-        _signed_txs: Vec<SignedTransaction>,
-        _proof: Proof,
-    ) -> ProtocolResult<()> {
+    async fn update_epoch(&self, ctx: Context, msg: Vec<u8>) -> ProtocolResult<()> {
+        // Reveive the rich epoch ID.
+        let epoch_id: FixedEpochID =
+            deserialize(&msg).map_err(|_| ConsensusError::DecodeErr(MsgType::RichEpochID))?;
+        let mut current_epoch_id = self.engine.get_current_epoch_id(ctx.clone()).await?;
+        let rich_epoch_id = epoch_id.inner;
+
+        if current_epoch_id >= rich_epoch_id {
+            return Ok(());
+        } else if current_epoch_id == rich_epoch_id - 1 {
+            // Wait for an interval and re-check if needs to synchronization.
+            Delay::new(Duration::from_millis(BROADCAST_STATUS_INTERVAL))
+                .await
+                .map_err(|err| ConsensusError::Other(format!("{:?}", err)))?;
+
+            current_epoch_id = self.engine.get_current_epoch_id(ctx.clone()).await?;
+            if rich_epoch_id <= current_epoch_id {
+                return Ok(());
+            }
+        }
+
+        // Need to synchronization.
+        self.engine.lock.lock().await;
+        let mut prev_hash = self
+            .engine
+            .get_epoch_by_id(ctx.clone(), current_epoch_id + 1)
+            .await?
+            .header
+            .pre_hash;
+
+        for id in (current_epoch_id + 1)..(rich_epoch_id + 1) {
+            // First pull a new block.
+            let epoch = self.engine.pull_epoch(ctx.clone(), id).await?;
+            let tmp_prev_hash = epoch.header.pre_hash.clone();
+
+            // Check proof and previous hash.
+            self.check_proof(id, epoch.header.proof.clone())?;
+            if prev_hash != epoch.header.pre_hash {
+                return Err(ConsensusError::SyncEpochHashErr(id).into());
+            }
+
+            // Then pull signed transactions.
+            let txs = self
+                .engine
+                .pull_txs(ctx.clone(), epoch.ordered_tx_hashes.clone())
+                .await?;
+
+            // After get the signed transactions:
+            // 1. Execute the signed transactions.
+            // 2. Save the signed transactions.
+            // 3. Save the latest proof.
+            // 4. Save the new epoch.
+            let _ = self.engine.exec(txs.clone()).await?;
+            self.engine.save_signed_txs(txs).await?;
+            self.engine.save_proof(epoch.header.proof.clone()).await?;
+            self.engine.save_epoch(epoch).await?;
+
+            // Update the previous hash for next check.
+            prev_hash = tmp_prev_hash;
+        }
+
         Ok(())
     }
 }
@@ -119,6 +178,10 @@ impl<Adapter: ConsensusAdapter + 'static> OverlordConsensus<Adapter> {
             .await
             .map_err(|e| ConsensusError::OverlordErr(Box::new(e)))?;
 
+        Ok(())
+    }
+
+    fn check_proof(&self, _epoch_id: u64, _proof: Proof) -> ProtocolResult<()> {
         Ok(())
     }
 }

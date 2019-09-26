@@ -27,6 +27,9 @@ pub enum MsgType {
 
     #[display(fmt = "Aggregated Vote")]
     AggregateVote,
+
+    #[display(fmt = "Rich Epoch ID")]
+    RichEpochID,
 }
 
 /// Consensus errors defines here.
@@ -59,6 +62,12 @@ pub enum ConsensusError {
     /// This boxed error should be a `CryptoError`.
     #[display(fmt = "Crypto error {:?}", _0)]
     CryptoErr(Box<CryptoError>),
+
+    ///
+    SyncEpochHashErr(u64),
+
+    ///
+    SyncEpochProofErr(u64),
 
     /// Other error used for very few errors.
     #[display(fmt = "{:?}", _0)]

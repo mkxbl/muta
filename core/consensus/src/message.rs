@@ -12,6 +12,9 @@ use protocol::ProtocolResult;
 pub const END_GOSSIP_SIGNED_PROPOSAL: &str = "/gossip/consensus/signed_proposal";
 pub const END_GOSSIP_SIGNED_VOTE: &str = "/gossip/consensus/signed_vote";
 pub const END_GOSSIP_AGGREGATED_VOTE: &str = "/gossip/consensus/qc";
+pub const END_GOSSIP_RICH_EPOCH_ID: &str = "/gossip/consensus/rich_epoch_id";
+pub const END_RPC_PULL_EPOCHS: &str = "/gossip/consensus/pull_epochs";
+pub const END_RPC_PULL_TXS: &str = "/gossip/consensus/pull_txs";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct Proposal(pub Vec<u8>);
