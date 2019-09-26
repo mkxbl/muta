@@ -16,7 +16,7 @@ use common_crypto::{
 };
 
 use crate::fixed_types::{ConsensusRpcRequest, FixedEpochs, FixedSignedTxs};
-use crate::message::{END_RPC_PULL_EPOCHS, END_RPC_PULL_TXS};
+use crate::message::RPC_SYNC_PULL;
 use crate::ConsensusError;
 
 #[derive(Clone, Debug)]
@@ -96,12 +96,7 @@ impl<R: Rpc + 'static, S: Storage + 'static> MessageHandler for RpcHandler<R, S>
                 let res = self.storage.get_epoch_by_epoch_id(ep.inner).await?;
 
                 self.rpc
-                    .response(
-                        ctx,
-                        END_RPC_PULL_EPOCHS,
-                        FixedEpochs::new(res),
-                        Priority::High,
-                    )
+                    .response(ctx, RPC_SYNC_PULL, FixedEpochs::new(res), Priority::High)
                     .await
             }
 
@@ -111,12 +106,7 @@ impl<R: Rpc + 'static, S: Storage + 'static> MessageHandler for RpcHandler<R, S>
                     res.push(self.storage.get_transaction_by_hash(tx).await?);
                 }
                 self.rpc
-                    .response(
-                        ctx,
-                        END_RPC_PULL_TXS,
-                        FixedSignedTxs::new(res),
-                        Priority::High,
-                    )
+                    .response(ctx, RPC_SYNC_PULL, FixedSignedTxs::new(res), Priority::High)
                     .await
             }
         }

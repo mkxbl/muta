@@ -22,8 +22,7 @@ use protocol::{ProtocolError, ProtocolResult};
 
 use crate::fixed_types::{FixedPill, FixedSignedTxs};
 use crate::message::{
-    END_GOSSIP_AGGREGATED_VOTE, END_GOSSIP_SIGNED_PROPOSAL, END_GOSSIP_SIGNED_VOTE,
-    END_RPC_PULL_EPOCHS, END_RPC_PULL_TXS,
+    END_GOSSIP_AGGREGATED_VOTE, END_GOSSIP_SIGNED_PROPOSAL, END_GOSSIP_SIGNED_VOTE, RPC_SYNC_PULL,
 };
 use crate::ConsensusError;
 
@@ -295,9 +294,7 @@ impl<Adapter: ConsensusAdapter + 'static> ConsensusEngine<Adapter> {
     }
 
     pub async fn pull_epoch(&self, ctx: Context, epoch_id: u64) -> ProtocolResult<Epoch> {
-        self.adapter
-            .pull_epoch(ctx, epoch_id, END_RPC_PULL_EPOCHS)
-            .await
+        self.adapter.pull_epoch(ctx, epoch_id, RPC_SYNC_PULL).await
     }
 
     pub async fn pull_txs(
@@ -305,7 +302,7 @@ impl<Adapter: ConsensusAdapter + 'static> ConsensusEngine<Adapter> {
         ctx: Context,
         hashes: Vec<Hash>,
     ) -> ProtocolResult<Vec<SignedTransaction>> {
-        self.adapter.pull_txs(ctx, hashes, END_RPC_PULL_TXS).await
+        self.adapter.pull_txs(ctx, hashes, RPC_SYNC_PULL).await
     }
 
     pub async fn get_epoch_by_id(&self, ctx: Context, epoch_id: u64) -> ProtocolResult<Epoch> {

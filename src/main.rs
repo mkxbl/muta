@@ -14,12 +14,13 @@ use core_api::adapter::DefaultAPIAdapter;
 use core_api::config::GraphQLConfig;
 use core_consensus::adapter::OverlordConsensusAdapter;
 use core_consensus::consensus::OverlordConsensus;
-use core_consensus::fixed_types::FixedPill;
+use core_consensus::fixed_types::{ConsensusRpcRequest, FixedPill};
 use core_consensus::message::{
     ProposalMessageHandler, QCMessageHandler, RichEpochIDMessageHandler, VoteMessageHandler,
     END_GOSSIP_AGGREGATED_VOTE, END_GOSSIP_RICH_EPOCH_ID, END_GOSSIP_SIGNED_PROPOSAL,
-    END_GOSSIP_SIGNED_VOTE,
+    END_GOSSIP_SIGNED_VOTE, RPC_SYNC_PULL,
 };
+use core_consensus::util::RpcHandler;
 use core_executor::trie::RocksTrieDB;
 use core_executor::TransactionExecutorFactory;
 use core_mempool::{DefaultMemPoolAdapter, HashMemPool};
@@ -296,6 +297,18 @@ async fn start(cfg: &Config) -> ProtocolResult<()> {
                 &overlord_consensus,
             ))),
         )
+        .unwrap();
+    network_service
+        .register_endpoint_handler(
+            RPC_SYNC_PULL,
+            Box::new(RpcHandler::new(
+                Arc::new(network_service.handle()),
+                Arc::clone(&storage),
+            )),
+        )
+        .unwrap();
+    network_service
+        .register_rpc_response::<ConsensusRpcRequest>(RPC_SYNC_PULL)
         .unwrap();
 
     // Run network
