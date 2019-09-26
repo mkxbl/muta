@@ -60,21 +60,22 @@ impl<Adapter: ConsensusAdapter + 'static> Engine<FixedPill, FixedSignedTxs>
             return Err(ProtocolError::from(ConsensusError::MissingEpochHeader(epoch_id)).into());
         }
 
+        let tmp_epoch_id = epoch_id;
         let header = EpochHeader {
-            chain_id: self.node_info.chain_id.clone(),
-            pre_hash: current_consensus_status.prev_hash,
-            epoch_id,
-            timestamp: time_now(),
-            logs_bloom: current_consensus_status.logs_bloom,
-            order_root: current_consensus_status.order_root.clone(),
-            confirm_root: current_consensus_status.confirm_root.clone(),
-            state_root: current_consensus_status.state_root.clone(),
-            receipt_root: current_consensus_status.receipt_root.clone(),
-            cycles_used: current_consensus_status.cycles_used,
-            proposer: self.node_info.self_address.clone(),
-            proof: current_consensus_status.proof.clone(),
+            chain_id:          self.node_info.chain_id.clone(),
+            pre_hash:          current_consensus_status.prev_hash,
+            epoch_id:          tmp_epoch_id,
+            timestamp:         time_now(),
+            logs_bloom:        current_consensus_status.logs_bloom,
+            order_root:        current_consensus_status.order_root.clone(),
+            confirm_root:      current_consensus_status.confirm_root.clone(),
+            state_root:        current_consensus_status.state_root.clone(),
+            receipt_root:      current_consensus_status.receipt_root.clone(),
+            cycles_used:       current_consensus_status.cycles_used,
+            proposer:          self.node_info.self_address.clone(),
+            proof:             current_consensus_status.proof.clone(),
             validator_version: 0u64,
-            validators: current_consensus_status.validators.clone(),
+            validators:        current_consensus_status.validators.clone(),
         };
         let epoch = Epoch {
             header,
