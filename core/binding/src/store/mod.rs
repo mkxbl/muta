@@ -1,5 +1,6 @@
 mod array;
 mod map;
+mod object;
 mod primitive;
 
 use bytes::Bytes;
@@ -10,6 +11,7 @@ use protocol::{ProtocolError, ProtocolErrorKind, ProtocolResult};
 
 pub use array::DefaultStoreArray;
 pub use map::DefaultStoreMap;
+pub use object::DefaultStoreObject;
 pub use primitive::{DefaultStoreBool, DefaultStoreString, DefaultStoreUint64};
 
 pub struct FixedKeys<K: FixedCodec> {

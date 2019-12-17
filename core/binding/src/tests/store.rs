@@ -5,12 +5,14 @@ use std::sync::Arc;
 use bytes::Bytes;
 use cita_trie::MemoryDB;
 
-use protocol::traits::{ServiceState, StoreArray, StoreBool, StoreMap, StoreString, StoreUint64};
+use protocol::{ProtocolResult};
+use protocol::traits::{ServiceState, StoreArray, StoreBool, StoreMap, StoreString, StoreUint64, StoreObject};
 use protocol::types::{Hash, MerkleRoot};
+use protocol::fixed_codec::{FixedCodec, FixedCodecError};
 
 use crate::state::{GeneralServiceState, MPTTrie};
 use crate::store::{
-    DefaultStoreArray, DefaultStoreBool, DefaultStoreMap, DefaultStoreString, DefaultStoreUint64,
+    DefaultStoreArray, DefaultStoreBool, DefaultStoreMap, DefaultStoreString, DefaultStoreUint64, DefaultStoreObject,
 };
 
 #[test]
@@ -141,6 +143,26 @@ fn test_default_store_array() {
     assert_eq!(sa.get(0usize).unwrap(), Bytes::from("22"));
 }
 
+#[test]
+fn test_default_store_object() {
+    let memdb = Arc::new(MemoryDB::new(false));
+    let mut state = new_state(Arc::clone(&memdb), None);
+
+    let rs = Rc::new(RefCell::new(state));
+    let mut so = DefaultStoreObject::new(Rc::clone(&rs), "test");
+
+    let test_obj_before = TestObject {
+        h1: Hash::digest(Bytes::from("h1")),
+        h2: Hash::digest(Bytes::from("h2"))
+    };
+
+    so.set(test_obj_before.clone()).unwrap();
+
+    let test_obj_after = so.get().unwrap();
+
+    assert_eq!(test_obj_before, test_obj_after);
+}
+
 fn new_state(memdb: Arc<MemoryDB>, root: Option<MerkleRoot>) -> GeneralServiceState<MemoryDB> {
     let trie = match root {
         Some(root) => MPTTrie::from(root, memdb).unwrap(),
@@ -148,4 +170,44 @@ fn new_state(memdb: Arc<MemoryDB>, root: Option<MerkleRoot>) -> GeneralServiceSt
     };
 
     GeneralServiceState::new(trie)
+}
+
+#[derive(Clone, PartialEq, Debug)]
+struct TestObject {
+    h1: Hash,
+    h2: Hash,
+}
+
+impl rlp::Encodable for TestObject {
+    fn rlp_append(&self, s: &mut rlp::RlpStream) {
+        s.begin_list(2)
+            .append(&self.h1)
+            .append(&self.h2);
+    }
+}
+
+impl rlp::Decodable for TestObject {
+    fn decode(r: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+        if !r.is_list() && r.size() != 2 {
+            return Err(rlp::DecoderError::RlpIncorrectListLen);
+        }
+
+        let h1 = rlp::decode(r.at(0)?.as_raw())?;
+        let h2 = rlp::decode(r.at(1)?.as_raw())?;
+
+        Ok(TestObject {
+            h1,
+            h2
+        })
+    }
+}
+
+impl FixedCodec for TestObject {
+    fn encode_fixed(&self) -> ProtocolResult<Bytes> {
+        Ok(Bytes::from(rlp::encode(self)))
+    }
+
+    fn decode_fixed(bytes: Bytes) -> ProtocolResult<Self> {
+        Ok(rlp::decode(bytes.as_ref()).map_err(FixedCodecError::from)?)
+    }
 }

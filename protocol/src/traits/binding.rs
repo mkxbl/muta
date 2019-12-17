@@ -194,6 +194,12 @@ pub trait ServiceSDK {
     ) -> ProtocolResult<json::JsonValue>;
 }
 
+pub trait StoreObject<Object: FixedCodec> {
+    fn get(&self) -> ProtocolResult<Object>;
+
+    fn set(&mut self, obj: Object) -> ProtocolResult<()>;
+}
+
 pub trait StoreMap<Key: FixedCodec + PartialEq, Value: FixedCodec> {
     fn get(&self, key: &Key) -> ProtocolResult<Value>;
 
