@@ -1,3 +1,5 @@
+use std::iter::Iterator;
+
 use crate::fixed_codec::FixedCodec;
 use crate::types::{Address, Epoch, Hash, MerkleRoot, Receipt, SignedTransaction};
 use crate::ProtocolResult;
@@ -201,6 +203,8 @@ pub trait ServiceSDK {
 }
 
 pub trait StoreMap<Key: FixedCodec + PartialEq, Value: FixedCodec> {
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item=(&Key, Value)> + 'a>;
+
     fn get(&self, key: &Key) -> ProtocolResult<Value>;
 
     fn contains(&self, key: &Key) -> ProtocolResult<bool>;

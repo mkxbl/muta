@@ -85,6 +85,15 @@ fn test_default_store_map() {
     sm.insert(Hash::digest(Bytes::from("key_2")), Bytes::from("val_2"))
         .unwrap();
 
+    {
+        let mut it = sm.iter();
+
+        assert_eq!(
+            it.next().unwrap(),
+            (&Hash::digest(Bytes::from("key_1")), Bytes::from("val_1"))
+        );
+    }
+
     assert_eq!(
         sm.get(&Hash::digest(Bytes::from("key_1"))).unwrap(),
         Bytes::from("val_1")
