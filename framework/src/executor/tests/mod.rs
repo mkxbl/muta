@@ -2,6 +2,7 @@ extern crate test;
 
 mod service_call_service;
 mod test_service;
+mod tx_hook;
 
 use std::sync::Arc;
 
@@ -12,7 +13,6 @@ use test::Bencher;
 
 use asset::types::{Asset, GetBalanceResponse};
 use asset::AssetService;
-use metadata::MetadataService;
 use protocol::traits::{Executor, ExecutorParams, Service, ServiceMapping, ServiceSDK, Storage};
 use protocol::types::{
     Address, Block, Genesis, Hash, Proof, RawTransaction, Receipt, SignedTransaction,
@@ -208,7 +208,7 @@ fn bench_execute(b: &mut Bencher) {
     )
     .unwrap();
 
-    let txs: Vec<SignedTransaction> = (0..1000).map(|_| mock_signed_tx()).collect();
+    let txs: Vec<SignedTransaction> = (0..10000).map(|_| mock_signed_tx()).collect();
 
     b.iter(|| {
         let params = ExecutorParams {
@@ -258,7 +258,6 @@ impl ServiceMapping for MockServiceMapping {
     ) -> ProtocolResult<Box<dyn Service>> {
         let service = match name {
             "asset" => Box::new(AssetService::new(sdk)) as Box<dyn Service>,
-            "metadata" => Box::new(MetadataService::new(sdk)) as Box<dyn Service>,
             "test" => Box::new(TestService::new(sdk)) as Box<dyn Service>,
             _ => panic!("not found service"),
         };
@@ -267,7 +266,7 @@ impl ServiceMapping for MockServiceMapping {
     }
 
     fn list_service_name(&self) -> Vec<String> {
-        vec!["asset".to_owned(), "metadata".to_owned(), "test".to_owned()]
+        vec!["asset".to_owned(), "test".to_owned()]
     }
 }
 
