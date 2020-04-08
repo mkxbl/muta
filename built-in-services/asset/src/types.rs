@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use bytes::Bytes;
 
+use binding_macro::ServiceInput;
 use protocol::fixed_codec::{FixedCodec, FixedCodecError};
+use protocol::traits::ServiceSchema;
 use protocol::types::{Address, Hash};
 use protocol::ProtocolResult;
 
@@ -25,7 +27,7 @@ pub struct CreateAssetPayload {
     pub supply: u64,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, ServiceInput)]
 pub struct GetAssetPayload {
     pub id: Hash,
 }
@@ -72,27 +74,27 @@ pub struct TransferFromEvent {
     pub value:     u64,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, ServiceInput)]
 pub struct GetBalancePayload {
     pub asset_id: Hash,
     pub user:     Address,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default, ServiceInput)]
 pub struct GetBalanceResponse {
     pub asset_id: Hash,
     pub user:     Address,
     pub balance:  u64,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, ServiceInput)]
 pub struct GetAllowancePayload {
     pub asset_id: Hash,
     pub grantor:  Address,
     pub grantee:  Address,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default, ServiceInput)]
 pub struct GetAllowanceResponse {
     pub asset_id: Hash,
     pub grantor:  Address,
@@ -100,7 +102,7 @@ pub struct GetAllowanceResponse {
     pub value:    u64,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default)]
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Default, ServiceInput)]
 pub struct Asset {
     pub id:     Hash,
     pub name:   String,

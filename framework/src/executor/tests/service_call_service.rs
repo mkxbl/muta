@@ -8,6 +8,7 @@ use asset::AssetService;
 use binding_macro::{cycles, service};
 use metadata::MetadataService;
 
+use protocol::call_service;
 use protocol::traits::{
     Executor, ExecutorParams, Service, ServiceMapping, ServiceResponse, ServiceSDK,
 };
@@ -85,10 +86,14 @@ fn test_service_call_service() {
     );
 
     assert_eq!(receipt.response.response.code, 0);
-    let asset: Asset = serde_json::from_str(&receipt.response.response.succeed_data).unwrap();
-    assert_eq!(asset.name, "TestCallAsset");
-    assert_eq!(asset.symbol, "TCA");
-    assert_eq!(asset.supply, 320_000_011);
+    // let asset: Asset =
+    // serde_json::from_str(&receipt.response.response.succeed_data).unwrap();
+    // assert_eq!(asset.name, "TestCallAsset");
+    // assert_eq!(asset.symbol, "TCA");
+    // assert_eq!(asset.supply, 320_000_011);
+
+    let supp: u64 = serde_json::from_str(&receipt.response.response.succeed_data).unwrap();
+    assert_eq!(supp, 320_000_011);
 }
 
 pub struct MockService<SDK> {
@@ -107,17 +112,22 @@ impl<SDK: ServiceSDK> MockService<SDK> {
         &mut self,
         ctx: ServiceContext,
         payload: CreateAssetPayload,
-    ) -> ServiceResponse<Asset> {
-        let payload_str = serde_json::to_string(&payload).unwrap();
+    ) -> ServiceResponse<u64> {
+        // let payload_str = serde_json::to_string(&payload).unwrap();
 
-        let ret = self
-            .sdk
-            .write(&ctx, None, "asset", "create_asset", &payload_str);
+        // let ret = self
+        //     .sdk
+        //     .write(&ctx, None, "asset", "create_asset", &payload_str);
 
-        let asset: Asset = serde_json::from_str(&ret.succeed_data).unwrap();
+        // let asset: Asset = serde_json::from_str(&ret.succeed_data).unwrap();
 
+        let res: ServiceResponse<Asset> =
+            call_service!(self, ctx, "asset", "create_asset", payload);
+        if res.is_error() {
+            panic!("call asset failed");
+        }
         ctx.emit_event("call create asset succeed".to_owned());
-        ServiceResponse::<Asset>::from_succeed(asset)
+        ServiceResponse::<u64>::from_succeed(res.succeed_data.supply)
     }
 }
 

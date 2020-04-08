@@ -4,6 +4,7 @@ mod common;
 mod cycles;
 mod hooks;
 mod read_write;
+mod schema;
 mod service;
 
 use proc_macro::TokenStream;
@@ -11,7 +12,15 @@ use proc_macro::TokenStream;
 use crate::cycles::gen_cycles_code;
 use crate::hooks::verify_hook;
 use crate::read_write::verify_read_or_write;
+use crate::schema::impl_service_input;
 use crate::service::gen_service_code;
+
+#[proc_macro_derive(ServiceInput)]
+pub fn service_input_derive(input: TokenStream) -> TokenStream {
+    let ast = syn::parse(input).unwrap();
+
+    impl_service_input(&ast)
+}
 
 #[rustfmt::skip]
 /// `#[genesis]` marks a service method to generate genesis states when fire up the chain

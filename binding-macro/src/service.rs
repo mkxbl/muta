@@ -1,6 +1,9 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, FnArg, Ident, ImplItem, ImplItemMethod, ItemImpl, Type};
+use syn::{
+    parse_macro_input, FnArg, GenericArgument, Ident, ImplItem, ImplItemMethod, ItemImpl,
+    PathArguments, ReturnType, Type,
+};
 
 const READ_ATTRIBUTE: &str = "read";
 const WRITE_ATTRIBUTE: &str = "write";
@@ -22,10 +25,125 @@ struct Hooks {
     tx_after:  Option<Ident>,
 }
 
+#[derive(Debug)]
 struct MethodMeta {
     method_ident:  Ident,
     payload_ident: Option<Ident>,
     readonly:      bool,
+    res_ident:     Option<Ident>,
+}
+
+fn gen_schema_code(methods: &Vec<MethodMeta>) -> proc_macro2::TokenStream {
+    let mut mutation = "type Mutation {/n".to_owned();
+    let mut query = "type Query {/n".to_owned();
+    let mut object = "".to_owned();
+    let mut scalar = "".to_owned();
+
+    let mut tokens = quote! {
+        let mut schemas: Vec<String> = vec![];
+    };
+
+    for m in methods.iter() {
+        if m.readonly {
+            if m.res_ident.is_none() {
+                if m.payload_ident.is_none() {
+                    query.push_str(format!("  {}()/n", &m.method_ident).as_str());
+                } else {
+                    let payload_ident = m.payload_ident.as_ref().unwrap();
+                    query.push_str(
+                        format!(
+                            "  {}(/n    payload: {}!/n  )/n",
+                            &m.method_ident, &payload_ident
+                        )
+                        .as_str(),
+                    );
+                    let token = quote! {
+                        schemas.push(#payload_ident::get_schema().0);
+                    };
+                    tokens = quote! {
+                        #tokens
+                        #token
+                    };
+                }
+            } else {
+                if m.payload_ident.is_none() {
+                    let res_ident = &m.res_ident.as_ref().unwrap();
+                    query.push_str(format!("  {}(): {}!", &m.method_ident, &res_ident).as_str());
+                    let token = quote! {
+                        schemas.push(#res_ident::get_schema().0);
+                    };
+                    tokens = quote! {
+                        #tokens
+                        #token
+                    };
+                } else {
+                    let payload_ident = &m.payload_ident.as_ref().unwrap();
+                    let res_ident = &m.res_ident.as_ref().unwrap();
+                    query.push_str(
+                        format!(
+                            "  {}(/n    payload: {}!/n  ): {}!",
+                            &m.method_ident, &payload_ident, &res_ident
+                        )
+                        .as_str(),
+                    );
+                    let token = quote! {
+                        schemas.push(#payload_ident::get_schema().0);
+                        schemas.push(#res_ident::get_schema().0);
+                    };
+                    tokens = quote! {
+                        #tokens
+                        #token
+                    };
+                }
+            }
+        } else {
+            if m.res_ident.is_none() {
+                if m.payload_ident.is_none() {
+                    mutation.push_str(format!("  {}()/n", &m.method_ident).as_str());
+                } else {
+                    mutation.push_str(
+                        format!(
+                            "  {}(/n    payload: {}!/n  )/n",
+                            &m.method_ident,
+                            &m.payload_ident.as_ref().unwrap()
+                        )
+                        .as_str(),
+                    );
+                }
+            } else {
+                if m.payload_ident.is_none() {
+                    mutation.push_str(
+                        format!(
+                            "  {}(): {}!",
+                            &m.method_ident,
+                            &m.res_ident.as_ref().unwrap()
+                        )
+                        .as_str(),
+                    );
+                } else {
+                    mutation.push_str(
+                        format!(
+                            "  {}(/n    payload: {}!/n  ): {}!",
+                            &m.method_ident,
+                            &m.payload_ident.as_ref().unwrap(),
+                            &m.res_ident.as_ref().unwrap()
+                        )
+                        .as_str(),
+                    );
+                }
+            }
+        }
+    }
+
+    let method = mutation + query.as_str();
+    let method_token = quote! {
+        schemas.push(#method.to_owned());
+        schemas.connect("/n")
+    };
+    quote! {
+        #tokens
+        #method_token
+    }
 }
 
 pub fn gen_service_code(_: TokenStream, item: TokenStream) -> TokenStream {
@@ -75,6 +193,8 @@ pub fn gen_service_code(_: TokenStream, item: TokenStream) -> TokenStream {
 
     let list_method_meta: Vec<MethodMeta> = methods.into_iter().map(extract_method_meta).collect();
 
+    let schema_code = gen_schema_code(&list_method_meta);
+
     let (list_read_name, list_read_ident, list_read_payload) =
         split_list_for_metadata(&list_method_meta, true);
     let (list_write_name, list_write_ident, list_write_payload) =
@@ -87,6 +207,9 @@ pub fn gen_service_code(_: TokenStream, item: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics protocol::traits::Service for #service_ident #ty_generics #where_clause {
+            fn schema_(&self) -> String {
+                #schema_code
+            }
             fn genesis_(&mut self, _payload: String) {
                 #genesis_body
             }
@@ -375,6 +498,46 @@ fn find_list_for_item_method(items: &[ImplItem]) -> Vec<ImplItemMethod> {
         .collect()
 }
 
+fn extract_res_ident(output: &ReturnType) -> Option<Ident> {
+    match output {
+        ReturnType::Type(_, ty) => match &**ty {
+            Type::Path(ty_path) => {
+                let arg = &ty_path
+                    .path
+                    .segments
+                    .first()
+                    .expect("path should contain type")
+                    .arguments;
+                match &arg {
+                    PathArguments::AngleBracketed(angle_arg) => {
+                        let arg_enum = angle_arg.args.first().expect("path should contain type");
+                        if let GenericArgument::Type(arg_ty) = arg_enum {
+                            match arg_ty {
+                                Type::Path(ret_ty) => Some(
+                                    ret_ty
+                                        .path
+                                        .segments
+                                        .first()
+                                        .expect("ServiceResponse<T> should contain T")
+                                        .ident
+                                        .clone(),
+                                ),
+                                Type::Tuple(_) => None,
+                                _ => panic!("arg should contain return type"),
+                            }
+                        } else {
+                            panic!("ServiceResponse<T> should contain a type")
+                        }
+                    }
+                    _ => panic!("return type should be AngleBracketed"),
+                }
+            }
+            _ => panic!("return type of read/write method should be ServiceResponse<T>"),
+        },
+        _ => panic!("return type of read/write method should be ServiceResponse<T>"),
+    }
+}
+
 fn extract_method_meta(method: ServiceMethod) -> MethodMeta {
     let (impl_method, readonly) = match method {
         ServiceMethod::Read(impl_method) => (impl_method, true),
@@ -384,10 +547,12 @@ fn extract_method_meta(method: ServiceMethod) -> MethodMeta {
     match &impl_method.sig.inputs.len() {
         // Method input params: `(&self/&mut self, ctx: ServiceContext)`
         2 => {
+            let res_ident = extract_res_ident(&impl_method.sig.output);
             MethodMeta {
                 method_ident: impl_method.sig.ident,
                 payload_ident: None,
                 readonly,
+                res_ident
             }
         },
         // Method input params: `(&self/&mut self, ctx: ServiceContext, payload: PayloadType)`
@@ -404,10 +569,13 @@ fn extract_method_meta(method: ServiceMethod) -> MethodMeta {
                 panic!("No payload type found.")
             };
 
+            let res_ident = extract_res_ident(&impl_method.sig.output);
+
             MethodMeta {
                 method_ident: impl_method.sig.ident,
                 payload_ident,
                 readonly,
+                res_ident
             }
         },
         _ => panic!("Method input params should be `(&self/&mut self, ctx: ServiceContext)` or `(&self/&mut self, ctx: ServiceContext, payload: PayloadType)`")

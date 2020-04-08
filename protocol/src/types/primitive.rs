@@ -7,6 +7,7 @@ use num_bigint::BigUint;
 use serde::de;
 use serde::{Deserialize, Serialize};
 
+use crate::traits::ServiceSchema;
 use crate::types::TypesError;
 use crate::ProtocolResult;
 
@@ -285,6 +286,12 @@ impl Address {
 impl fmt::Debug for Address {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.as_hex())
+    }
+}
+
+impl ServiceSchema for Metadata {
+    fn get_schema() -> (String, u8) {
+        ("fuck you".to_owned(), 0)
     }
 }
 

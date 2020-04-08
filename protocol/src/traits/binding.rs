@@ -7,6 +7,34 @@ use crate::traits::{ExecutorParams, ServiceResponse};
 use crate::types::{Address, Block, Hash, MerkleRoot, Receipt, ServiceContext, SignedTransaction};
 use crate::ProtocolResult;
 
+#[macro_export]
+macro_rules! call_service {
+    ( $self_: ident, $ctx: expr, $service: expr, $method: expr, $payload: expr ) => {{
+        let json_res = serde_json::to_string(&$payload);
+        if json_res.is_err() {
+            return ServiceResponse::<_>::from_error(888, "json encode error".to_owned());
+        }
+
+        let call_res = $self_
+            .sdk
+            .write(&$ctx, None, $service, $method, &json_res.unwrap());
+        if call_res.is_error() {
+            ServiceResponse::<_>::from_error(call_res.code, call_res.error_message)
+        } else {
+            let res = serde_json::from_str(call_res.succeed_data.as_str());
+            if res.is_err() {
+                ServiceResponse::<_>::from_error(888, "json decode error".to_owned())
+            } else {
+                ServiceResponse::<_>::from_succeed(res.unwrap())
+            }
+        }
+    }};
+}
+
+pub trait ServiceSchema {
+    fn get_schema() -> (String, u8);
+}
+
 pub trait ServiceMapping: Send + Sync {
     fn get_service<SDK: 'static + ServiceSDK>(
         &self,
@@ -99,6 +127,8 @@ pub trait Service {
     fn write_(&mut self, ctx: ServiceContext) -> ServiceResponse<String>;
 
     fn read_(&self, ctx: ServiceContext) -> ServiceResponse<String>;
+
+    fn schema_(&self) -> String;
 }
 
 // `ServiceSDK` provides multiple rich interfaces for `service` developers
