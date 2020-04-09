@@ -323,6 +323,8 @@ type ValidatorExtend {
     vote_weight: Uint32!
 }"#;
         register.insert("Metadata".to_owned(), schema.to_owned());
+        register.insert("Hex".to_owned(), "scalar Hex".to_owned());
+        register.insert("u32".to_owned(), "scalar Uint32".to_owned());
     }
 }
 

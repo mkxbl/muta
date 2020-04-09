@@ -48,7 +48,12 @@ pub struct TransferEvent {
     pub value:    u64,
 }
 
-pub type ApprovePayload = TransferPayload;
+#[derive(Deserialize, Serialize, Clone, Debug, ServiceInput)]
+pub struct ApprovePayload {
+    pub asset_id: Hash,
+    pub to:       Address,
+    pub value:    u64,
+}
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct ApproveEvent {

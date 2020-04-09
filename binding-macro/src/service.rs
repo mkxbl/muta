@@ -43,16 +43,25 @@ fn gen_schema_code(service: &Ident, methods: &Vec<MethodMeta>) -> proc_macro2::T
         let mut register = HashMap::<String, String>::new();
     };
 
+    let scalar_none = "scalar Null";
+    let scalar_none_token = quote! {
+        register.insert("scalar_none_key".to_owned(), #scalar_none.to_owned());
+    };
+
     for m in methods.iter() {
         if m.readonly {
             if m.res_ident.is_none() {
                 if m.payload_ident.is_none() {
-                    query.push_str(format!("  {}()\n", &m.method_ident).as_str());
+                    query.push_str(format!("  {}: Null\n", &m.method_ident).as_str());
+                    tokens = quote! {
+                        #tokens
+                        #scalar_none_token
+                    };
                 } else {
                     let payload_ident = m.payload_ident.as_ref().unwrap();
                     query.push_str(
                         format!(
-                            "  {}(\n    payload: {}!\n  )\n",
+                            "  {}(\n    payload: {}!\n  ): Null\n",
                             &m.method_ident, &payload_ident
                         )
                         .as_str(),
@@ -63,12 +72,13 @@ fn gen_schema_code(service: &Ident, methods: &Vec<MethodMeta>) -> proc_macro2::T
                     tokens = quote! {
                         #tokens
                         #token
+                        #scalar_none_token
                     };
                 }
             } else {
                 if m.payload_ident.is_none() {
                     let res_ident = &m.res_ident.as_ref().unwrap();
-                    query.push_str(format!("  {}(): {}!\n", &m.method_ident, &res_ident).as_str());
+                    query.push_str(format!("  {}: {}!\n", &m.method_ident, &res_ident).as_str());
                     let token = quote! {
                         #res_ident::schema(&mut register);
                     };
@@ -99,12 +109,16 @@ fn gen_schema_code(service: &Ident, methods: &Vec<MethodMeta>) -> proc_macro2::T
         } else {
             if m.res_ident.is_none() {
                 if m.payload_ident.is_none() {
-                    mutation.push_str(format!("  {}()\n", &m.method_ident).as_str());
+                    mutation.push_str(format!("  {}: Null\n", &m.method_ident).as_str());
+                    tokens = quote! {
+                        #tokens
+                        #scalar_none_token
+                    };
                 } else {
                     let payload_ident = m.payload_ident.as_ref().unwrap();
                     mutation.push_str(
                         format!(
-                            "  {}(\n    payload: {}!\n  )\n",
+                            "  {}(\n    payload: {}!\n  ): Null\n",
                             &m.method_ident, &payload_ident
                         )
                         .as_str(),
@@ -115,13 +129,13 @@ fn gen_schema_code(service: &Ident, methods: &Vec<MethodMeta>) -> proc_macro2::T
                     tokens = quote! {
                         #tokens
                         #token
+                        #scalar_none_token
                     };
                 }
             } else {
                 if m.payload_ident.is_none() {
                     let res_ident = &m.res_ident.as_ref().unwrap();
-                    mutation
-                        .push_str(format!("  {}(): {}!\n", &m.method_ident, &res_ident).as_str());
+                    mutation.push_str(format!("  {}: {}!\n", &m.method_ident, &res_ident).as_str());
                     let token = quote! {
                         #res_ident::schema(&mut register);
                     };

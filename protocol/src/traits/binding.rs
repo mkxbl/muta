@@ -50,7 +50,7 @@ impl ServiceSchema for u64 {
     }
 
     fn schema(register: &mut HashMap<String, String>) {
-        register.insert("u64".to_owned(), "Scalar Uint64".to_owned());
+        register.insert("u64".to_owned(), "scalar Uint64".to_owned());
     }
 }
 
@@ -64,7 +64,7 @@ impl ServiceSchema for u32 {
     }
 
     fn schema(register: &mut HashMap<String, String>) {
-        register.insert("u32".to_owned(), "Scalar Uint32".to_owned());
+        register.insert("u32".to_owned(), "scalar Uint32".to_owned());
     }
 }
 
@@ -78,7 +78,7 @@ impl ServiceSchema for Hex {
     }
 
     fn schema(register: &mut HashMap<String, String>) {
-        register.insert("Hex".to_owned(), "Scalar Hex".to_owned());
+        register.insert("Hex".to_owned(), "scalar Hex".to_owned());
     }
 }
 
@@ -92,7 +92,7 @@ impl ServiceSchema for Hash {
     }
 
     fn schema(register: &mut HashMap<String, String>) {
-        register.insert("Hash".to_owned(), "Scalar Hash".to_owned());
+        register.insert("Hash".to_owned(), "scalar Hash".to_owned());
     }
 }
 
@@ -106,7 +106,7 @@ impl ServiceSchema for Address {
     }
 
     fn schema(register: &mut HashMap<String, String>) {
-        register.insert("Address".to_owned(), "Scalar Address".to_owned());
+        register.insert("Address".to_owned(), "scalar Address".to_owned());
     }
 }
 impl ServiceSchema for String {
@@ -119,7 +119,7 @@ impl ServiceSchema for String {
     }
 
     fn schema(register: &mut HashMap<String, String>) {
-        register.insert("String".to_owned(), "Scalar String".to_owned());
+        register.insert("String".to_owned(), "scalar String".to_owned());
     }
 }
 
