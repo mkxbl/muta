@@ -13,6 +13,7 @@ pub enum StorageCategory {
     Receipt,
     SignedTransaction,
     Wal,
+    Schema,
 }
 
 pub trait StorageSchema {
@@ -24,6 +25,9 @@ pub trait StorageSchema {
 
 #[async_trait]
 pub trait Storage: Send + Sync {
+    async fn insert_schema(&self, schema: String) -> ProtocolResult<()>;
+    async fn get_schema(&self) -> ProtocolResult<String>;
+
     async fn insert_transactions(&self, signed_txs: Vec<SignedTransaction>) -> ProtocolResult<()>;
 
     async fn insert_block(&self, block: Block) -> ProtocolResult<()>;

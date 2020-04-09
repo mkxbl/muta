@@ -1,35 +1,21 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, GenericArgument, PathArguments, Type};
+use syn::{Data, DeriveInput, Fields, GenericArgument, Ident, PathArguments, Type};
 
-fn mark_scalar(ident: &str) -> (String, u8) {
-    match ident {
-        "Address" => ("Address".to_owned(), 1),
-        "Hash" => ("Hash".to_owned(), 2),
-        "Bytes" => ("Bytes".to_owned(), 4),
-        "u32" => ("Uint32".to_owned(), 8),
-        "u64" => ("Uint64".to_owned(), 16),
-        "Hex" => ("Hex".to_owned(), 32),
-        _ => (ident.to_owned(), 0),
-    }
-}
-
-fn extract_ident_from_vec(ty: &Type) -> String {
+fn extract_ident_from_vec(ty: &Type) -> Ident {
     match ty {
-        Type::Path(path) => {
-            let ident = &path
-                .path
-                .segments
-                .first()
-                .expect("should contain type")
-                .ident;
-            format!("{}", ident)
-        }
+        Type::Path(path) => path
+            .path
+            .segments
+            .first()
+            .expect("should contain type")
+            .ident
+            .clone(),
         _ => panic!("ty should be Path"),
     }
 }
 
-fn extract_ident_from_ty(ty: &Type) -> (String, u8) {
+fn extract_ident_from_ty(ty: &Type) -> (Ident, bool) {
     match ty {
         Type::Path(ty) => {
             let segs = &ty.path.segments;
@@ -40,8 +26,7 @@ fn extract_ident_from_ty(ty: &Type) -> (String, u8) {
                         let arg = g_ty.args.first().expect("should contain arg");
                         if let GenericArgument::Type(arg_ty) = arg {
                             let ident = extract_ident_from_vec(&arg_ty);
-                            let ret = mark_scalar(ident.as_str());
-                            (format!("[{}!]!\n", ret.0), ret.1)
+                            (ident, true)
                         } else {
                             panic!("arg should by Type")
                         }
@@ -50,9 +35,7 @@ fn extract_ident_from_ty(ty: &Type) -> (String, u8) {
                     }
                 } else {
                     if let PathArguments::None = concrete_ty.arguments {
-                        let ident = format!("{}", concrete_ty.ident);
-                        let ret = mark_scalar(ident.as_str());
-                        (format!("{}!\n", ret.0), ret.1)
+                        (concrete_ty.ident.clone(), false)
                     } else {
                         panic!("only support Vec")
                     }
@@ -68,19 +51,58 @@ fn extract_ident_from_ty(ty: &Type) -> (String, u8) {
 pub fn impl_service_input(ast: &DeriveInput) -> TokenStream {
     let ident = &ast.ident;
     let ident_str = format!("{}", ident);
-    let mut fields_str: String = "".to_owned();
-    let mut scalar: u8 = 0;
+
+    let mut tokens = quote! {
+        if register.contains_key(#ident_str) {
+            return;
+        }
+
+        let mut schema = format!("type {} {}\n", #ident_str, "{");
+    };
 
     match &ast.data {
         Data::Struct(data) => match &data.fields {
             Fields::Named(fields) => {
                 for f in fields.named.iter() {
                     let field_ident = f.ident.as_ref().expect("field should be named");
-                    let name_str = format!("    {}: ", field_ident);
+                    let field_str = format!("{}", field_ident);
+
                     let ret = extract_ident_from_ty(&f.ty);
-                    let s = name_str + ret.0.as_str();
-                    fields_str.push_str(s.as_str());
-                    scalar = scalar | ret.1;
+                    let ty_ident = ret.0;
+                    let ty_str = ty_ident.to_string();
+                    if ret.1 {
+                        let token = quote! {
+                            if #ty_ident::is_scalar() {
+                                let scalar_name = #ty_ident::scalar_name();
+                                let it_str = format!("  {}: [{}!]!\n", #field_str, scalar_name);
+                                schema.push_str(it_str.as_str());
+                            } else {
+                                let it_str = format!("  {}: [{}!]!\n", #field_str, #ty_str);
+                                schema.push_str(it_str.as_str());
+                            }
+                            #ty_ident::schema(register);
+                        };
+                        tokens = quote! {
+                            #tokens
+                            #token
+                        };
+                    } else {
+                        let token = quote! {
+                            if #ty_ident::is_scalar() {
+                                let scalar_name = #ty_ident::scalar_name();
+                                let it_str = format!("  {}: {}!\n", #field_str, scalar_name);
+                                schema.push_str(it_str.as_str());
+                            } else {
+                                let it_str = format!("  {}: {}!\n", #field_str, #ty_str);
+                                schema.push_str(it_str.as_str());
+                            }
+                            #ty_ident::schema(register);
+                        };
+                        tokens = quote! {
+                            #tokens
+                            #token
+                        };
+                    }
                 }
             }
             _ => panic!("struct field should be named"),
@@ -88,10 +110,28 @@ pub fn impl_service_input(ast: &DeriveInput) -> TokenStream {
         _ => panic!("only struct"),
     }
 
+    let token = quote! {
+        schema.push_str("}");
+        register.insert(#ident_str.to_owned(), schema);
+    };
+
+    tokens = quote! {
+        #tokens
+        #token
+    };
+
     let gen = quote! {
         impl ServiceSchema for #ident {
-            fn get_schema() -> (String, u8) {
-                (format!("type {} {}\n{}{}", #ident_str, "{", #fields_str, "}"), #scalar)
+            fn is_scalar() -> bool {
+                false
+            }
+
+            fn scalar_name() -> String {
+                "".to_owned()
+            }
+
+            fn schema(register: &mut HashMap<String, String>) {
+                #tokens
             }
         }
     };

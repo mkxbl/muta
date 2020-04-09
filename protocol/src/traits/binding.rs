@@ -1,10 +1,13 @@
+use std::collections::HashMap;
 use std::iter::Iterator;
 
 use bytes::Bytes;
 
 use crate::fixed_codec::FixedCodec;
 use crate::traits::{ExecutorParams, ServiceResponse};
-use crate::types::{Address, Block, Hash, MerkleRoot, Receipt, ServiceContext, SignedTransaction};
+use crate::types::{
+    Address, Block, Hash, Hex, MerkleRoot, Receipt, ServiceContext, SignedTransaction,
+};
 use crate::ProtocolResult;
 
 #[macro_export]
@@ -32,7 +35,92 @@ macro_rules! call_service {
 }
 
 pub trait ServiceSchema {
-    fn get_schema() -> (String, u8);
+    fn is_scalar() -> bool;
+    fn scalar_name() -> String;
+    fn schema(register: &mut HashMap<String, String>);
+}
+
+impl ServiceSchema for u64 {
+    fn is_scalar() -> bool {
+        true
+    }
+
+    fn scalar_name() -> String {
+        "Uint64".to_owned()
+    }
+
+    fn schema(register: &mut HashMap<String, String>) {
+        register.insert("u64".to_owned(), "Scalar Uint64".to_owned());
+    }
+}
+
+impl ServiceSchema for u32 {
+    fn is_scalar() -> bool {
+        true
+    }
+
+    fn scalar_name() -> String {
+        "Uint32".to_owned()
+    }
+
+    fn schema(register: &mut HashMap<String, String>) {
+        register.insert("u32".to_owned(), "Scalar Uint32".to_owned());
+    }
+}
+
+impl ServiceSchema for Hex {
+    fn is_scalar() -> bool {
+        true
+    }
+
+    fn scalar_name() -> String {
+        "Hex".to_owned()
+    }
+
+    fn schema(register: &mut HashMap<String, String>) {
+        register.insert("Hex".to_owned(), "Scalar Hex".to_owned());
+    }
+}
+
+impl ServiceSchema for Hash {
+    fn is_scalar() -> bool {
+        true
+    }
+
+    fn scalar_name() -> String {
+        "Hash".to_owned()
+    }
+
+    fn schema(register: &mut HashMap<String, String>) {
+        register.insert("Hash".to_owned(), "Scalar Hash".to_owned());
+    }
+}
+
+impl ServiceSchema for Address {
+    fn is_scalar() -> bool {
+        true
+    }
+
+    fn scalar_name() -> String {
+        "Address".to_owned()
+    }
+
+    fn schema(register: &mut HashMap<String, String>) {
+        register.insert("Address".to_owned(), "Scalar Address".to_owned());
+    }
+}
+impl ServiceSchema for String {
+    fn is_scalar() -> bool {
+        true
+    }
+
+    fn scalar_name() -> String {
+        "String".to_owned()
+    }
+
+    fn schema(register: &mut HashMap<String, String>) {
+        register.insert("String".to_owned(), "Scalar String".to_owned());
+    }
 }
 
 pub trait ServiceMapping: Send + Sync {

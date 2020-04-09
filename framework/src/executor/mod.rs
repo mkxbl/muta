@@ -59,7 +59,7 @@ impl<S: Storage, DB: TrieDB, Mapping: ServiceMapping> Clone for ServiceExecutor<
 impl<S: 'static + Storage, DB: 'static + TrieDB, Mapping: 'static + ServiceMapping>
     ServiceExecutor<S, DB, Mapping>
 {
-    pub fn create_genesis(
+    pub async fn create_genesis(
         services: Vec<ServiceParam>,
         trie_db: Arc<DB>,
         storage: Arc<S>,
@@ -73,6 +73,24 @@ impl<S: 'static + Storage, DB: 'static + TrieDB, Mapping: 'static + ServiceMappi
 
             states.insert(name, Rc::new(RefCell::new(GeneralServiceState::new(trie))));
         }
+
+        // TODO: get schema from services, not hard-encode
+        let mut schema = r#"schema {
+  query: Query
+  mutation: Mutation
+}
+
+type Query {
+  asset: AssetServiceQuery!
+  metadata: MetadataServiceQuery!
+}
+
+type Mutation {
+  asset: AssetServiceMutation!
+}
+
+"#
+        .to_owned();
 
         for params in services.into_iter() {
             let state = states
@@ -90,7 +108,11 @@ impl<S: 'static + Storage, DB: 'static + TrieDB, Mapping: 'static + ServiceMappi
             .map_err(|e| ProtocolError::from(ExecutorError::InitService(format!("{:?}", e))))?;
 
             state.borrow_mut().stash()?;
+
+            schema.push_str(service.schema_().as_str());
         }
+
+        storage.insert_schema(schema).await?;
 
         let trie = MPTTrie::new(Arc::clone(&trie_db));
         let mut root_state = GeneralServiceState::new(trie);

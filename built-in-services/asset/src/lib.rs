@@ -3,6 +3,7 @@ mod tests;
 pub mod types;
 
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use bytes::Bytes;
 

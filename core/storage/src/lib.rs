@@ -65,6 +65,7 @@ impl_storage_schema_for!(
     SignedTransaction,
     SignedTransaction
 );
+impl_storage_schema_for!(ServiceSchema, Bytes, Bytes, Schema);
 impl_storage_schema_for!(ReceiptSchema, Hash, Receipt, Receipt);
 impl_storage_schema_for!(BlockSchema, u64, Block, Block);
 impl_storage_schema_for!(HashBlockSchema, Hash, u64, Block);
@@ -106,8 +107,22 @@ macro_rules! get {
     }};
 }
 
+const Service_Schema_Key: Bytes = Bytes::from_static(b"service_schema");
+
 #[async_trait]
 impl<Adapter: StorageAdapter> Storage for ImplStorage<Adapter> {
+    async fn insert_schema(&self, schema: String) -> ProtocolResult<()> {
+        let bs = Bytes::from(schema);
+        self.adapter
+            .insert::<ServiceSchema>(Service_Schema_Key.clone(), bs)
+            .await
+    }
+
+    async fn get_schema(&self) -> ProtocolResult<String> {
+        let bs = get!(self, Service_Schema_Key.clone(), ServiceSchema);
+        Ok(String::from_utf8(bs.as_ref().to_vec()).expect("schema poc failed"))
+    }
+
     async fn insert_transactions(&self, signed_txs: Vec<SignedTransaction>) -> ProtocolResult<()> {
         batch_insert!(self, signed_txs, TransactionSchema);
         Ok(())

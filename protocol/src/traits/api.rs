@@ -6,6 +6,7 @@ use crate::ProtocolResult;
 
 #[async_trait]
 pub trait APIAdapter: Send + Sync {
+    async fn get_schema(&self, ctx: Context) -> ProtocolResult<String>;
     async fn insert_signed_txs(
         &self,
         ctx: Context,

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 
 use bytes::{Bytes, BytesMut};
@@ -290,8 +291,38 @@ impl fmt::Debug for Address {
 }
 
 impl ServiceSchema for Metadata {
-    fn get_schema() -> (String, u8) {
-        ("fuck you".to_owned(), 0)
+    fn is_scalar() -> bool {
+        false
+    }
+
+    fn scalar_name() -> String {
+        "".to_owned()
+    }
+
+    fn schema(register: &mut HashMap<String, String>) {
+        let schema = r#"type Metadata {
+    chain_id: Hash!
+    common_ref: Hex!
+    timeout_gap: Uint64!
+    cycles_limit: Uint64!
+    cycles_price: Uint64!
+    interval: Uint64!
+    verifier_list: [ValidatorExtend!]!
+    prevote_ratio: Uint64!
+    precommit_ratio: Uint64!
+    propose_ratio: Uint64!
+    brake_ratio: Uint64!
+    tx_num_limit: Uint64!
+    max_tx_size: Uint64!
+}
+
+type ValidatorExtend {
+    bls_pub_key: Hex!
+    address: Address!
+    propose_weight: Uint32!
+    vote_weight: Uint32!
+}"#;
+        register.insert("Metadata".to_owned(), schema.to_owned());
     }
 }
 

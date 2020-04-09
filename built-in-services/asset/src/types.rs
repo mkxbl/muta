@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +21,7 @@ pub struct InitGenesisPayload {
     pub issuer: Address,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, ServiceInput)]
 pub struct CreateAssetPayload {
     pub name:   String,
     pub symbol: String,
@@ -32,7 +33,7 @@ pub struct GetAssetPayload {
     pub id: Hash,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, ServiceInput)]
 pub struct TransferPayload {
     pub asset_id: Hash,
     pub to:       Address,
@@ -57,7 +58,7 @@ pub struct ApproveEvent {
     pub value:    u64,
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, ServiceInput)]
 pub struct TransferFromPayload {
     pub asset_id:  Hash,
     pub sender:    Address,

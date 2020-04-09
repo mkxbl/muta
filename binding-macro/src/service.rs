@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
@@ -33,32 +35,30 @@ struct MethodMeta {
     res_ident:     Option<Ident>,
 }
 
-fn gen_schema_code(methods: &Vec<MethodMeta>) -> proc_macro2::TokenStream {
-    let mut mutation = "type Mutation {/n".to_owned();
-    let mut query = "type Query {/n".to_owned();
-    let mut object = "".to_owned();
-    let mut scalar = "".to_owned();
+fn gen_schema_code(service: &Ident, methods: &Vec<MethodMeta>) -> proc_macro2::TokenStream {
+    let mut mutation = format!("type {}Mutation {}\n", service, "{");
+    let mut query = format!("type {}Query {}\n", service, "{");
 
     let mut tokens = quote! {
-        let mut schemas: Vec<String> = vec![];
+        let mut register = HashMap::<String, String>::new();
     };
 
     for m in methods.iter() {
         if m.readonly {
             if m.res_ident.is_none() {
                 if m.payload_ident.is_none() {
-                    query.push_str(format!("  {}()/n", &m.method_ident).as_str());
+                    query.push_str(format!("  {}()\n", &m.method_ident).as_str());
                 } else {
                     let payload_ident = m.payload_ident.as_ref().unwrap();
                     query.push_str(
                         format!(
-                            "  {}(/n    payload: {}!/n  )/n",
+                            "  {}(\n    payload: {}!\n  )\n",
                             &m.method_ident, &payload_ident
                         )
                         .as_str(),
                     );
                     let token = quote! {
-                        schemas.push(#payload_ident::get_schema().0);
+                        #payload_ident::schema(&mut register);
                     };
                     tokens = quote! {
                         #tokens
@@ -68,9 +68,9 @@ fn gen_schema_code(methods: &Vec<MethodMeta>) -> proc_macro2::TokenStream {
             } else {
                 if m.payload_ident.is_none() {
                     let res_ident = &m.res_ident.as_ref().unwrap();
-                    query.push_str(format!("  {}(): {}!", &m.method_ident, &res_ident).as_str());
+                    query.push_str(format!("  {}(): {}!\n", &m.method_ident, &res_ident).as_str());
                     let token = quote! {
-                        schemas.push(#res_ident::get_schema().0);
+                        #res_ident::schema(&mut register);
                     };
                     tokens = quote! {
                         #tokens
@@ -81,14 +81,14 @@ fn gen_schema_code(methods: &Vec<MethodMeta>) -> proc_macro2::TokenStream {
                     let res_ident = &m.res_ident.as_ref().unwrap();
                     query.push_str(
                         format!(
-                            "  {}(/n    payload: {}!/n  ): {}!",
+                            "  {}(\n    payload: {}!\n  ): {}!\n",
                             &m.method_ident, &payload_ident, &res_ident
                         )
                         .as_str(),
                     );
                     let token = quote! {
-                        schemas.push(#payload_ident::get_schema().0);
-                        schemas.push(#res_ident::get_schema().0);
+                        #payload_ident::schema(&mut register);
+                        #res_ident::schema(&mut register);
                     };
                     tokens = quote! {
                         #tokens
@@ -99,46 +99,80 @@ fn gen_schema_code(methods: &Vec<MethodMeta>) -> proc_macro2::TokenStream {
         } else {
             if m.res_ident.is_none() {
                 if m.payload_ident.is_none() {
-                    mutation.push_str(format!("  {}()/n", &m.method_ident).as_str());
+                    mutation.push_str(format!("  {}()\n", &m.method_ident).as_str());
                 } else {
+                    let payload_ident = m.payload_ident.as_ref().unwrap();
                     mutation.push_str(
                         format!(
-                            "  {}(/n    payload: {}!/n  )/n",
-                            &m.method_ident,
-                            &m.payload_ident.as_ref().unwrap()
+                            "  {}(\n    payload: {}!\n  )\n",
+                            &m.method_ident, &payload_ident
                         )
                         .as_str(),
                     );
+                    let token = quote! {
+                        #payload_ident::schema(&mut register);
+                    };
+                    tokens = quote! {
+                        #tokens
+                        #token
+                    };
                 }
             } else {
                 if m.payload_ident.is_none() {
-                    mutation.push_str(
-                        format!(
-                            "  {}(): {}!",
-                            &m.method_ident,
-                            &m.res_ident.as_ref().unwrap()
-                        )
-                        .as_str(),
-                    );
+                    let res_ident = &m.res_ident.as_ref().unwrap();
+                    mutation
+                        .push_str(format!("  {}(): {}!\n", &m.method_ident, &res_ident).as_str());
+                    let token = quote! {
+                        #res_ident::schema(&mut register);
+                    };
+                    tokens = quote! {
+                        #tokens
+                        #token
+                    };
                 } else {
+                    let payload_ident = &m.payload_ident.as_ref().unwrap();
+                    let res_ident = &m.res_ident.as_ref().unwrap();
                     mutation.push_str(
                         format!(
-                            "  {}(/n    payload: {}!/n  ): {}!",
-                            &m.method_ident,
-                            &m.payload_ident.as_ref().unwrap(),
-                            &m.res_ident.as_ref().unwrap()
+                            "  {}(\n    payload: {}!\n  ): {}!\n",
+                            &m.method_ident, &payload_ident, &res_ident
                         )
                         .as_str(),
                     );
+                    let token = quote! {
+                        #payload_ident::schema(&mut register);
+                        #res_ident::schema(&mut register);
+                    };
+                    tokens = quote! {
+                        #tokens
+                        #token
+                    };
                 }
             }
         }
     }
 
+    if format!("type {}Mutation {}\n", service, "{") == mutation {
+        mutation = "".to_owned();
+    } else {
+        mutation = mutation + "}\n\n";
+    }
+    if format!("type {}Query {}\n", service, "{") == query {
+        query = "".to_owned();
+    } else {
+        query = query + "}\n\n";
+    }
+
     let method = mutation + query.as_str();
     let method_token = quote! {
-        schemas.push(#method.to_owned());
-        schemas.connect("/n")
+        let mut objects = "".to_owned();
+
+        for schema in register.values() {
+            objects.push_str(schema.as_str());
+            objects.push_str("\n\n");
+        }
+
+        #method.to_owned() + objects.as_str()
     };
     quote! {
         #tokens
@@ -193,7 +227,7 @@ pub fn gen_service_code(_: TokenStream, item: TokenStream) -> TokenStream {
 
     let list_method_meta: Vec<MethodMeta> = methods.into_iter().map(extract_method_meta).collect();
 
-    let schema_code = gen_schema_code(&list_method_meta);
+    let schema_code = gen_schema_code(&service_ident, &list_method_meta);
 
     let (list_read_name, list_read_ident, list_read_payload) =
         split_list_for_metadata(&list_method_meta, true);
@@ -233,6 +267,10 @@ pub fn gen_service_code(_: TokenStream, item: TokenStream) -> TokenStream {
             fn read_(&self, ctx: protocol::types::ServiceContext) -> ServiceResponse<String> {
                 let service = ctx.get_service_name();
                 let method = ctx.get_service_method();
+
+                if method == "get_schema" {
+                    return ServiceResponse::<String>::from_succeed(self.schema_());
+                }
 
                 match method {
                     #(#list_read_name => {

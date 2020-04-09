@@ -42,6 +42,13 @@ struct Query;
 // Switch to async/await fn https://github.com/graphql-rust/juniper/issues/2
 #[juniper::graphql_object(Context = State)]
 impl Query {
+    #[graphql(name = "getSchema", description = "Get the schema")]
+    async fn get_schema(state_ctx: &State) -> FieldResult<String> {
+        let schema = state_ctx.adapter.get_schema(Context::new()).await?;
+
+        Ok(schema)
+    }
+
     #[graphql(name = "getBlock", description = "Get the block")]
     async fn get_block(state_ctx: &State, height: Option<Uint64>) -> FieldResult<Block> {
         let height = match height {

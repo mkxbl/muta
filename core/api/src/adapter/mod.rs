@@ -73,6 +73,10 @@ impl<
         self.mempool.insert(ctx, signed_tx).await
     }
 
+    async fn get_schema(&self, _ctx: Context) -> ProtocolResult<String> {
+        self.storage.get_schema().await
+    }
+
     async fn get_block_by_height(
         &self,
         _ctx: Context,

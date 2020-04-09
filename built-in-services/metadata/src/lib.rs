@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests;
 
+use std::collections::HashMap;
+
 use binding_macro::{cycles, genesis, service};
 use protocol::traits::{ExecutorParams, ServiceResponse, ServiceSDK, ServiceSchema};
 use protocol::types::{Metadata, ServiceContext, METADATA_KEY};
