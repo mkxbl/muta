@@ -49,6 +49,7 @@ fn gen_schema_code(service: &Ident, methods: &Vec<MethodMeta>) -> proc_macro2::T
     };
 
     for m in methods.iter() {
+        // Todo: use match
         if m.readonly {
             if m.res_ident.is_none() {
                 if m.payload_ident.is_none() {
