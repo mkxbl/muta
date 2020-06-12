@@ -163,7 +163,7 @@ macro_rules! emit_event {
     ($ctx: ident, $event: expr) => {
         let event_res = serde_json::to_string(&$event);
         if let Err(e) = event_res {
-            return ServiceResponse::<_>::from_error(103, format!("{:?}", e));
+            return ServiceResponse::<_>::from_error((103, format!("{:?}", e).as_str()));
         }
         $ctx.emit_event($event.topic(), event_res.unwrap());
     };

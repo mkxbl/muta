@@ -12,7 +12,8 @@ use protocol::traits::{
     APIAdapter, Context, ExecutorParams, MemPool, ServiceMapping, ServiceResponse, Storage,
 };
 use protocol::types::{
-    Address, Block, ChainSchema, Hash, Receipt, SignedTransaction, TransactionRequest,
+    Address, Block, BlockHookReceipt, ChainSchema, Hash, Receipt, SignedTransaction,
+    TransactionRequest,
 };
 use protocol::{ProtocolError, ProtocolErrorKind, ProtocolResult};
 
@@ -118,6 +119,14 @@ impl<
                 expect: height,
             }),
         ))
+    }
+
+    async fn get_block_hook_receipt(
+        &self,
+        _ctx: Context,
+        height: u64,
+    ) -> ProtocolResult<BlockHookReceipt> {
+        self.storage.get_hook_receipt(height).await
     }
 
     async fn get_transaction_by_hash(

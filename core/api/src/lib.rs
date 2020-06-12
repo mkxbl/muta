@@ -19,9 +19,9 @@ use protocol::traits::{APIAdapter, Context};
 
 use crate::config::GraphQLConfig;
 use crate::schema::{
-    to_signed_transaction, to_transaction, Address, Block, Bytes, ChainSchema, Hash,
-    InputRawTransaction, InputTransactionEncryption, Receipt, ServiceResponse, SignedTransaction,
-    Uint64,
+    to_signed_transaction, to_transaction, Address, Block, BlockHookReceipt, Bytes, ChainSchema,
+    Hash, InputRawTransaction, InputTransactionEncryption, Receipt, ServiceResponse,
+    SignedTransaction, Uint64,
 };
 
 lazy_static! {
@@ -83,6 +83,23 @@ impl Query {
             .await?;
 
         Ok(Receipt::from(receipt))
+    }
+
+    #[graphql(
+        name = "getBlockHookReceipt",
+        description = "Get the receipt of block hook by height"
+    )]
+    async fn get_block_hook_receipt(
+        state_ctx: &State,
+        height: Uint64,
+    ) -> FieldResult<BlockHookReceipt> {
+        let height = height.try_into_u64()?;
+        let receipt = state_ctx
+            .adapter
+            .get_block_hook_receipt(Context::new(), height)
+            .await?;
+
+        Ok(BlockHookReceipt::from(receipt))
     }
 
     #[graphql(name = "queryService", description = "query service")]

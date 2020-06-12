@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 
 use binding_macro::{cycles, genesis, service};
 use protocol::traits::{ExecutorParams, MetaGenerator, ServiceResponse, ServiceSDK};
-use protocol::types::{DataMeta, Metadata, MethodMeta, ServiceContext, ServiceMeta, METADATA_KEY};
+use protocol::types::{
+    DataMeta, Event, Metadata, MethodMeta, Receipt, ServiceContext, ServiceMeta, METADATA_KEY,
+};
 
 pub struct MetadataService<SDK> {
     sdk: SDK,

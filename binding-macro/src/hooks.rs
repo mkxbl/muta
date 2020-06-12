@@ -8,7 +8,6 @@ pub fn verify_hook(item: TokenStream) -> TokenStream {
     let method_item = parse_macro_input!(item as ImplItemMethod);
 
     let inputs = &method_item.sig.inputs;
-    assert_eq!(inputs.len(), 2);
 
     assert!(arg_is_mutable_receiver(&inputs[0]));
 

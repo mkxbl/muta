@@ -19,7 +19,7 @@ pub use primitive::{
     Address, ChainSchema, Hash, Hex, JsonString, MerkleRoot, Metadata, ServiceSchema,
     ValidatorExtend, GENESIS_HEIGHT, METADATA_KEY,
 };
-pub use receipt::{Event, Receipt, ReceiptResponse};
+pub use receipt::{BlockHookReceipt, Event, Receipt, ReceiptResponse};
 pub use service_context::{ServiceContext, ServiceContextError, ServiceContextParams};
 pub use service_meta::{DataMeta, FieldMeta, MethodMeta, ScalarMeta, ServiceMeta, StructMeta};
 pub use transaction::{RawTransaction, SignedTransaction, TransactionRequest};
@@ -37,6 +37,9 @@ pub enum TypesError {
 
     #[display(fmt = "Hex should start with 0x")]
     HexPrefix,
+
+    #[display(fmt = "Decode hex string error")]
+    DecodeHex,
 }
 
 impl Error for TypesError {}

@@ -3,7 +3,7 @@ use derive_more::Display;
 
 use crate::codec::ProtocolCodec;
 use crate::types::block::{Block, Proof};
-use crate::types::receipt::Receipt;
+use crate::types::receipt::{BlockHookReceipt, Receipt};
 use crate::types::{Hash, SignedTransaction};
 use crate::{Bytes, ProtocolResult};
 
@@ -30,6 +30,8 @@ pub trait Storage: Send + Sync {
 
     async fn insert_receipts(&self, receipts: Vec<Receipt>) -> ProtocolResult<()>;
 
+    async fn insert_hook_receipt(&self, receipt: BlockHookReceipt) -> ProtocolResult<()>;
+
     async fn update_latest_proof(&self, proof: Proof) -> ProtocolResult<()>;
 
     async fn get_transaction_by_hash(&self, tx_hash: Hash) -> ProtocolResult<SignedTransaction>;
@@ -43,6 +45,8 @@ pub trait Storage: Send + Sync {
     async fn get_block_by_hash(&self, block_hash: Hash) -> ProtocolResult<Block>;
 
     async fn get_receipt(&self, hash: Hash) -> ProtocolResult<Receipt>;
+
+    async fn get_hook_receipt(&self, height: u64) -> ProtocolResult<BlockHookReceipt>;
 
     async fn get_receipts(&self, hash: Vec<Hash>) -> ProtocolResult<Vec<Receipt>>;
 

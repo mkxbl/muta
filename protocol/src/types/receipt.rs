@@ -28,3 +28,9 @@ pub struct ReceiptResponse {
     pub method:       String,
     pub response:     ServiceResponse<String>,
 }
+#[derive(RlpFixedCodec, Clone, Debug, PartialEq, Eq)]
+pub struct BlockHookReceipt {
+    pub height:     u64,
+    pub state_root: MerkleRoot,
+    pub events:     Vec<Event>,
+}

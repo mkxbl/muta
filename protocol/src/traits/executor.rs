@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::traits::{ServiceMapping, Storage};
 use crate::types::{
-    Address, MerkleRoot, Receipt, ServiceContext, ServiceMeta, SignedTransaction,
+    Address, BlockHookReceipt, MerkleRoot, Receipt, ServiceContext, ServiceMeta, SignedTransaction,
     TransactionRequest,
 };
 use crate::ProtocolResult;
@@ -11,6 +11,7 @@ use crate::ProtocolResult;
 #[derive(Debug, Clone)]
 pub struct ExecutorResp {
     pub receipts:        Vec<Receipt>,
+    pub hook_receipt:    BlockHookReceipt,
     pub all_cycles_used: u64,
     pub state_root:      MerkleRoot,
 }
@@ -31,11 +32,11 @@ pub struct ServiceResponse<T: Default> {
 }
 
 impl<T: Default> ServiceResponse<T> {
-    pub fn from_error(code: u64, error_message: String) -> Self {
+    pub fn from_error(error: (u64, &str)) -> Self {
         Self {
-            code,
-            succeed_data: T::default(),
-            error_message,
+            code:          error.0,
+            succeed_data:  T::default(),
+            error_message: error.1.to_owned(),
         }
     }
 

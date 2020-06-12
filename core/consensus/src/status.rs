@@ -214,7 +214,7 @@ impl ExecutedInfo {
     pub fn new(height: u64, order_root: MerkleRoot, resp: ExecutorResp) -> Self {
         let cycles = resp.all_cycles_used;
 
-        let receipt = Merkle::from_hashes(
+        let tx_receipt_root = Merkle::from_hashes(
             resp.receipts
                 .iter()
                 .map(|r| Hash::digest(r.to_owned().encode_fixed().unwrap()))
@@ -222,13 +222,17 @@ impl ExecutedInfo {
         )
         .get_root_hash()
         .unwrap_or_else(Hash::from_empty);
+        let hook_receipt_root = Hash::digest(resp.hook_receipt.encode_fixed().unwrap());
+        let receipt_root = Merkle::from_hashes(vec![tx_receipt_root, hook_receipt_root])
+            .get_root_hash()
+            .unwrap_or_else(Hash::from_empty);
 
         Self {
-            exec_height:  height,
-            cycles_used:  cycles,
-            receipt_root: receipt,
+            exec_height: height,
+            cycles_used: cycles,
+            receipt_root,
             confirm_root: order_root,
-            state_root:   resp.state_root,
+            state_root: resp.state_root,
         }
     }
 }

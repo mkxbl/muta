@@ -18,7 +18,7 @@ use protocol::fixed_codec::FixedCodec;
 use protocol::traits::{
     Storage, StorageAdapter, StorageBatchModify, StorageCategory, StorageSchema,
 };
-use protocol::types::{Block, Hash, Proof, Receipt, SignedTransaction};
+use protocol::types::{Block, BlockHookReceipt, Hash, Proof, Receipt, SignedTransaction};
 use protocol::Bytes;
 use protocol::{ProtocolError, ProtocolErrorKind, ProtocolResult};
 
@@ -66,6 +66,7 @@ impl_storage_schema_for!(
     SignedTransaction
 );
 impl_storage_schema_for!(ReceiptSchema, Hash, Receipt, Receipt);
+impl_storage_schema_for!(BlockHookReceiptSchema, u64, BlockHookReceipt, Receipt);
 impl_storage_schema_for!(BlockSchema, u64, Block, Block);
 impl_storage_schema_for!(HashBlockSchema, Hash, u64, Block);
 impl_storage_schema_for!(LatestBlockSchema, Hash, Block, Block);
@@ -137,6 +138,13 @@ impl<Adapter: StorageAdapter> Storage for ImplStorage<Adapter> {
         Ok(())
     }
 
+    async fn insert_hook_receipt(&self, receipt: BlockHookReceipt) -> ProtocolResult<()> {
+        let height = receipt.height;
+        self.adapter
+            .insert::<BlockHookReceiptSchema>(height, receipt)
+            .await
+    }
+
     async fn update_latest_proof(&self, proof: Proof) -> ProtocolResult<()> {
         self.adapter
             .insert::<LatestProofSchema>(LATEST_PROOF_KEY.clone(), proof)
@@ -177,6 +185,11 @@ impl<Adapter: StorageAdapter> Storage for ImplStorage<Adapter> {
 
     async fn get_receipt(&self, hash: Hash) -> ProtocolResult<Receipt> {
         let receipt = get!(self, hash, ReceiptSchema);
+        Ok(receipt)
+    }
+
+    async fn get_hook_receipt(&self, height: u64) -> ProtocolResult<BlockHookReceipt> {
+        let receipt = get!(self, height, BlockHookReceiptSchema);
         Ok(receipt)
     }
 

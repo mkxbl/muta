@@ -1,10 +1,10 @@
-use asset::AssetService;
+use ckb_client::ClientService;
+use ckb_sudt::SudtService;
 use derive_more::{Display, From};
 use metadata::MetadataService;
 use muta::MutaBuilder;
 use protocol::traits::{Service, ServiceMapping, ServiceSDK};
 use protocol::{ProtocolError, ProtocolErrorKind, ProtocolResult};
-use util::UtilService;
 
 struct DefaultServiceMapping;
 
@@ -15,9 +15,9 @@ impl ServiceMapping for DefaultServiceMapping {
         sdk: SDK,
     ) -> ProtocolResult<Box<dyn Service>> {
         let service = match name {
-            "asset" => Box::new(AssetService::new(sdk)) as Box<dyn Service>,
             "metadata" => Box::new(MetadataService::new(sdk)) as Box<dyn Service>,
-            "util" => Box::new(UtilService::new(sdk)) as Box<dyn Service>,
+            "ckb_client" => Box::new(ClientService::new(sdk)) as Box<dyn Service>,
+            "ckb_sudt" => Box::new(SudtService::new(sdk)) as Box<dyn Service>,
             _ => {
                 return Err(MappingError::NotFoundService {
                     service: name.to_owned(),
@@ -30,7 +30,11 @@ impl ServiceMapping for DefaultServiceMapping {
     }
 
     fn list_service_name(&self) -> Vec<String> {
-        vec!["asset".to_owned(), "metadata".to_owned(), "util".to_owned()]
+        vec![
+            "metadata".to_owned(),
+            "ckb_client".to_owned(),
+            "ckb_sudt".to_owned(),
+        ]
     }
 }
 

@@ -5,7 +5,8 @@ use creep::Context;
 
 use crate::traits::{ExecutorParams, ExecutorResp, TrustFeedback};
 use crate::types::{
-    Address, Block, Bytes, Hash, MerkleRoot, Metadata, Proof, Receipt, SignedTransaction, Validator,
+    Address, Block, BlockHookReceipt, Bytes, Hash, MerkleRoot, Metadata, Proof, Receipt,
+    SignedTransaction, Validator,
 };
 use crate::{traits::mempool::MixedTxHashes, ProtocolResult};
 
@@ -98,6 +99,12 @@ pub trait CommonConsensusAdapter: Send + Sync {
     ) -> ProtocolResult<()>;
 
     async fn save_receipts(&self, ctx: Context, receipts: Vec<Receipt>) -> ProtocolResult<()>;
+
+    async fn save_hook_receipt(
+        &self,
+        ctx: Context,
+        receipt: BlockHookReceipt,
+    ) -> ProtocolResult<()>;
 
     /// Flush the given transactions in the mempool.
     async fn flush_mempool(&self, ctx: Context, ordered_tx_hashes: &[Hash]) -> ProtocolResult<()>;

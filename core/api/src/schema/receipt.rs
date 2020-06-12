@@ -11,6 +11,13 @@ pub struct Receipt {
 }
 
 #[derive(juniper::GraphQLObject, Clone)]
+pub struct BlockHookReceipt {
+    pub height:     Uint64,
+    pub state_root: MerkleRoot,
+    pub events:     Vec<Event>,
+}
+
+#[derive(juniper::GraphQLObject, Clone)]
 pub struct Event {
     pub service: String,
     pub topic:   String,
@@ -33,6 +40,16 @@ impl From<protocol::types::Receipt> for Receipt {
             cycles_used: Uint64::from(receipt.cycles_used),
             events:      receipt.events.into_iter().map(Event::from).collect(),
             response:    ReceiptResponse::from(receipt.response),
+        }
+    }
+}
+
+impl From<protocol::types::BlockHookReceipt> for BlockHookReceipt {
+    fn from(receipt: protocol::types::BlockHookReceipt) -> Self {
+        Self {
+            height:     Uint64::from(receipt.height),
+            state_root: MerkleRoot::from(receipt.state_root),
+            events:     receipt.events.into_iter().map(Event::from).collect(),
         }
     }
 }

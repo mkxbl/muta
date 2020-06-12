@@ -6,7 +6,7 @@ use bytes::Bytes;
 use crate::fixed_codec::FixedCodec;
 use crate::traits::{ExecutorParams, ServiceResponse};
 use crate::types::{
-    Address, Block, DataMeta, Hash, Hex, MerkleRoot, Receipt, ScalarMeta, ServiceContext,
+    Address, Block, DataMeta, Event, Hash, Hex, MerkleRoot, Receipt, ScalarMeta, ServiceContext,
     ServiceMeta, SignedTransaction,
 };
 use crate::ProtocolResult;
@@ -93,7 +93,13 @@ pub trait Service {
     fn hook_before_(&mut self, _params: &ExecutorParams) {}
 
     // Called after block execution
-    fn hook_after_(&mut self, _params: &ExecutorParams) {}
+    fn hook_after_(
+        &mut self,
+        _params: &ExecutorParams,
+        _receipts: &[Receipt],
+    ) -> Option<Vec<Event>> {
+        None
+    }
 
     // Called before tx execution
     fn tx_hook_before_(&mut self, _ctx: ServiceContext) {}
@@ -327,6 +333,7 @@ macro_rules! impl_scalar_meta {
 impl_scalar_meta![u8, "U8"];
 impl_scalar_meta![u32, "U32"];
 impl_scalar_meta![u64, "U64"];
+impl_scalar_meta![u128, "U128"];
 impl_scalar_meta![bool, "Boolean"];
 impl_scalar_meta![String, "String"];
 impl_scalar_meta![Address, "Address", "20 bytes of account address"];

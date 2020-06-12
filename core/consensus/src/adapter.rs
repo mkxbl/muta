@@ -19,8 +19,8 @@ use protocol::traits::{
     ServiceMapping, Storage, SynchronizationAdapter, TrustFeedback,
 };
 use protocol::types::{
-    Address, Block, Bytes, Hash, MerkleRoot, Metadata, Proof, Receipt, SignedTransaction,
-    TransactionRequest, Validator,
+    Address, Block, BlockHookReceipt, Bytes, Hash, MerkleRoot, Metadata, Proof, Receipt,
+    SignedTransaction, TransactionRequest, Validator,
 };
 use protocol::{fixed_codec::FixedCodec, ProtocolResult};
 
@@ -359,6 +359,10 @@ where
 
     async fn save_receipts(&self, _: Context, receipts: Vec<Receipt>) -> ProtocolResult<()> {
         self.storage.insert_receipts(receipts).await
+    }
+
+    async fn save_hook_receipt(&self, _: Context, receipt: BlockHookReceipt) -> ProtocolResult<()> {
+        self.storage.insert_hook_receipt(receipt).await
     }
 
     /// Flush the given transactions in the mempool.
@@ -822,6 +826,7 @@ where
 
             let now = Instant::now();
             self.save_receipts(resp.receipts.clone()).await?;
+            self.save_hook_receipt(resp.hook_receipt.clone()).await?;
             log::info!(
                 "[consensus-adapter]: save receipts cost {:?} receipts len {:?}",
                 now.elapsed(),
@@ -838,12 +843,16 @@ where
     async fn save_receipts(&self, receipts: Vec<Receipt>) -> ProtocolResult<()> {
         self.storage.insert_receipts(receipts).await
     }
+
+    async fn save_hook_receipt(&self, receipt: BlockHookReceipt) -> ProtocolResult<()> {
+        self.storage.insert_hook_receipt(receipt).await
+    }
 }
 
 fn gen_executed_info(exec_resp: ExecutorResp, height: u64, order_root: MerkleRoot) -> ExecutedInfo {
     let cycles = exec_resp.all_cycles_used;
 
-    let receipt = Merkle::from_hashes(
+    let tx_receipt_root = Merkle::from_hashes(
         exec_resp
             .receipts
             .iter()
@@ -852,12 +861,16 @@ fn gen_executed_info(exec_resp: ExecutorResp, height: u64, order_root: MerkleRoo
     )
     .get_root_hash()
     .unwrap_or_else(Hash::from_empty);
+    let hook_receipt_root = Hash::digest(exec_resp.hook_receipt.encode_fixed().unwrap());
+    let receipt_root = Merkle::from_hashes(vec![tx_receipt_root, hook_receipt_root])
+        .get_root_hash()
+        .unwrap_or_else(Hash::from_empty);
 
     ExecutedInfo {
-        exec_height:  height,
-        cycles_used:  cycles,
-        receipt_root: receipt,
+        exec_height: height,
+        cycles_used: cycles,
+        receipt_root,
         confirm_root: order_root,
-        state_root:   exec_resp.state_root,
+        state_root: exec_resp.state_root,
     }
 }

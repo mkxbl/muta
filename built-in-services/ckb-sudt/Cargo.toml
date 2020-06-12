@@ -1,5 +1,5 @@
 [package]
-name = "asset"
+name = "ckb-sudt"
 version = "0.1.0-alpha.0"
 authors = ["Muta Dev <muta@nervos.org>"]
 edition = "2018"

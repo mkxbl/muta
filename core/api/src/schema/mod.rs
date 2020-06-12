@@ -10,7 +10,7 @@ use std::num::ParseIntError;
 use protocol::{ProtocolError, ProtocolErrorKind, ProtocolResult};
 
 pub use block::{Block, BlockHeader};
-pub use receipt::{Event, Receipt, ReceiptResponse};
+pub use receipt::{BlockHookReceipt, Event, Receipt, ReceiptResponse};
 pub use transaction::{
     to_signed_transaction, to_transaction, InputRawTransaction, InputTransactionEncryption,
     SignedTransaction,

@@ -18,18 +18,13 @@ use protocol::traits::{
     ServiceResponse, ServiceState, Storage,
 };
 use protocol::types::{
-    Address, Hash, MerkleRoot, Receipt, ReceiptResponse, ServiceContext, ServiceContextParams,
-    ServiceMeta, ServiceParam, SignedTransaction, TransactionRequest,
+    Address, BlockHookReceipt, Event, Hash, MerkleRoot, Receipt, ReceiptResponse, ServiceContext,
+    ServiceContextParams, ServiceMeta, ServiceParam, SignedTransaction, TransactionRequest,
 };
 use protocol::{ProtocolError, ProtocolErrorKind, ProtocolResult};
 
 use crate::binding::sdk::{DefalutServiceSDK, DefaultChainQuerier};
 use crate::binding::state::{GeneralServiceState, MPTTrie};
-
-enum HookType {
-    Before,
-    After,
-}
 
 #[derive(Clone)]
 enum ExecType {
@@ -153,27 +148,33 @@ impl<S: 'static + Storage, DB: 'static + TrieDB, Mapping: 'static + ServiceMappi
         Ok(())
     }
 
-    fn hook(&mut self, hook: HookType, exec_params: &ExecutorParams) -> ProtocolResult<()> {
+    fn hook_before(&mut self, exec_params: &ExecutorParams) -> ProtocolResult<()> {
         for name in self.service_mapping.list_service_name().into_iter() {
             let sdk = self.get_sdk(&name)?;
             let mut service = self.service_mapping.get_service(name.as_str(), sdk)?;
-
-            let hook_ret = match hook {
-                HookType::Before => {
-                    panic::catch_unwind(AssertUnwindSafe(|| service.hook_before_(exec_params)))
-                }
-                HookType::After => {
-                    panic::catch_unwind(AssertUnwindSafe(|| service.hook_after_(exec_params)))
-                }
-            };
-
-            if hook_ret.is_err() {
-                self.revert_cache()?;
-            } else {
-                self.stash()?;
-            }
+            service.hook_before_(exec_params)
         }
         Ok(())
+    }
+
+    fn hook_after(
+        &mut self,
+        exec_params: &ExecutorParams,
+        receipts: &[Receipt],
+    ) -> ProtocolResult<BlockHookReceipt> {
+        let mut events = Vec::<Event>::new();
+        for name in self.service_mapping.list_service_name().into_iter() {
+            let sdk = self.get_sdk(&name)?;
+            let mut service = self.service_mapping.get_service(name.as_str(), sdk)?;
+            if let Some(mut es) = service.hook_after_(exec_params, receipts) {
+                events.append(&mut es);
+            }
+        }
+        Ok(BlockHookReceipt {
+            height: exec_params.height,
+            state_root: MerkleRoot::from_empty(),
+            events,
+        })
     }
 
     fn get_sdk(
@@ -309,7 +310,7 @@ impl<S: 'static + Storage, DB: 'static + TrieDB, Mapping: 'static + ServiceMappi
         params: &ExecutorParams,
         txs: &[SignedTransaction],
     ) -> ProtocolResult<ExecutorResp> {
-        self.hook(HookType::Before, params)?;
+        self.hook_before(params)?;
 
         let mut receipts = txs
             .iter()
@@ -342,7 +343,7 @@ impl<S: 'static + Storage, DB: 'static + TrieDB, Mapping: 'static + ServiceMappi
             })
             .collect::<Result<Vec<Receipt>, ProtocolError>>()?;
 
-        self.hook(HookType::After, params)?;
+        let mut hook_receipt = self.hook_after(params, receipts.as_slice())?;
 
         let state_root = self.commit()?;
         let mut all_cycles_used = 0;
@@ -352,8 +353,11 @@ impl<S: 'static + Storage, DB: 'static + TrieDB, Mapping: 'static + ServiceMappi
             all_cycles_used += receipt.cycles_used;
         }
 
+        hook_receipt.state_root = state_root.clone();
+
         Ok(ExecutorResp {
             receipts,
+            hook_receipt,
             all_cycles_used,
             state_root,
         })

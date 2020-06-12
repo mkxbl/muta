@@ -38,6 +38,18 @@ pub struct Receipt {
 }
 
 #[derive(Clone, Message)]
+pub struct BlockHookReceipt {
+    #[prost(uint64, tag = "1")]
+    pub height: u64,
+
+    #[prost(message, tag = "2")]
+    pub state_root: Option<Hash>,
+
+    #[prost(message, repeated, tag = "3")]
+    pub events: Vec<Event>,
+}
+
+#[derive(Clone, Message)]
 pub struct ReceiptResponse {
     #[prost(bytes, tag = "1")]
     pub service_name: Vec<u8>,
@@ -149,6 +161,41 @@ impl TryFrom<Receipt> for receipt::Receipt {
     }
 }
 
+// BlockHookReceipt
+
+impl From<receipt::BlockHookReceipt> for BlockHookReceipt {
+    fn from(receipt: receipt::BlockHookReceipt) -> BlockHookReceipt {
+        let state_root = Some(Hash::from(receipt.state_root));
+        let events = receipt.events.into_iter().map(Event::from).collect();
+
+        BlockHookReceipt {
+            height: receipt.height,
+            state_root,
+            events,
+        }
+    }
+}
+
+impl TryFrom<BlockHookReceipt> for receipt::BlockHookReceipt {
+    type Error = ProtocolError;
+
+    fn try_from(receipt: BlockHookReceipt) -> Result<receipt::BlockHookReceipt, Self::Error> {
+        let state_root = field!(receipt.state_root, "BlockHookReceipt", "state_root")?;
+        let events = receipt
+            .events
+            .into_iter()
+            .map(protocol_receipt::Event::try_from)
+            .collect::<Result<Vec<protocol_receipt::Event>, ProtocolError>>()?;
+
+        let receipt = receipt::BlockHookReceipt {
+            height: receipt.height,
+            state_root: protocol_primitive::Hash::try_from(state_root)?,
+            events,
+        };
+
+        Ok(receipt)
+    }
+}
 // Event
 impl From<receipt::Event> for Event {
     fn from(event: receipt::Event) -> Event {
@@ -176,4 +223,4 @@ impl TryFrom<Event> for receipt::Event {
 // Codec
 // #################
 
-impl_default_bytes_codec_for!(receipt, [Receipt]);
+impl_default_bytes_codec_for!(receipt, [Receipt, BlockHookReceipt]);

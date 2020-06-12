@@ -147,8 +147,8 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
     let hook_after = &hooks.after;
     let hook_after_body = match hook_after {
-        Some(hook_after) => quote! { self.#hook_after(_params) },
-        None => quote! {()},
+        Some(hook_after) => quote! { self.#hook_after(_params, _receipts) },
+        None => quote! { None },
     };
     let tx_hook_before = &hooks.tx_before;
     let tx_hook_before_body = match tx_hook_before {
@@ -185,7 +185,7 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #hook_before_body
             }
 
-            fn hook_after_(&mut self, _params: &ExecutorParams) {
+            fn hook_after_(&mut self, _params: &ExecutorParams, _receipts: &[Receipt]) -> Option<Vec<Event>> {
                 #hook_after_body
             }
 
@@ -205,7 +205,7 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
                     #(#list_read_name => {
                         let payload_res: Result<#list_read_payload, _> = serde_json::from_str(ctx.get_payload());
                         if payload_res.is_err() {
-                            return ServiceResponse::<String>::from_error(1, "decode service payload failed".to_owned());
+                            return ServiceResponse::<String>::from_error((1, "decode service payload failed"));
                         };
                         let payload = payload_res.unwrap();
                         let res = self.#list_read_ident(ctx, payload);
@@ -216,7 +216,7 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
                             }
                             ServiceResponse::<String>::from_succeed(data_json)
                         } else {
-                            ServiceResponse::<String>::from_error(res.code, res.error_message.clone())
+                            ServiceResponse::<String>::from_error((res.code, res.error_message.as_str()))
                         }
                     },)*
                     #(#list_read_name_nonepayload => {
@@ -228,10 +228,10 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
                             }
                             ServiceResponse::<String>::from_succeed(data_json)
                         } else {
-                            ServiceResponse::<String>::from_error(res.code, res.error_message.clone())
+                            ServiceResponse::<String>::from_error((res.code, res.error_message.as_str()))
                         }
                     },)*
-                    _ => ServiceResponse::<String>::from_error(2, format!("not found method:{:?} of service:{:?}", method, service))
+                    _ => ServiceResponse::<String>::from_error((2, format!("not found method:{:?} of service:{:?}", method, service).as_str()))
                 }
             }
 
@@ -243,7 +243,7 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
                     #(#list_write_name => {
                         let payload_res: Result<#list_write_payload, _> = serde_json::from_str(ctx.get_payload());
                         if payload_res.is_err() {
-                            return ServiceResponse::<String>::from_error(1, "decode service payload failed".to_owned());
+                            return ServiceResponse::<String>::from_error((1, "decode service payload failed"));
                         };
                         let payload = payload_res.unwrap();
                         let res = self.#list_write_ident(ctx, payload);
@@ -254,7 +254,7 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
                             }
                             ServiceResponse::<String>::from_succeed(data_json)
                         } else {
-                            ServiceResponse::<String>::from_error(res.code, res.error_message.clone())
+                            ServiceResponse::<String>::from_error((res.code, res.error_message.as_str()))
                         }
                     },)*
                     #(#list_write_name_nonepayload => {
@@ -266,10 +266,10 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
                             }
                             ServiceResponse::<String>::from_succeed(data_json)
                         } else {
-                            ServiceResponse::<String>::from_error(res.code, res.error_message.clone())
+                            ServiceResponse::<String>::from_error((res.code, res.error_message.as_str()))
                         }
                     },)*
-                    _ => ServiceResponse::<String>::from_error(2, format!("not found method:{:?} of service:{:?}", method, service))
+                    _ => ServiceResponse::<String>::from_error((2, format!("not found method:{:?} of service:{:?}", method, service).as_str()))
                 }
             }
 
