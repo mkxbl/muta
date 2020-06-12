@@ -17,7 +17,9 @@ use protocol::traits::{
 use protocol::types::{DataMeta, Event, MethodMeta, Receipt, ServiceContext, ServiceMeta};
 
 use crate::errors::{DECODE_HEADER_ERROR, VERIFY_HEADER_FAILED};
-use crate::types::{Consensus, HeaderPayload, HeadersPayload, SubmitHeadersEvent, VerifyTxPayload};
+use crate::types::{
+    Consensus, Events, HeaderPayload, HeadersPayload, SubmitHeadersEvent, VerifyTxPayload,
+};
 
 const CONSENSUS_KEY: &str = "ckb_consensus_key";
 const TIP_HASH_KEY: &str = "tip_hash_key";
@@ -30,7 +32,7 @@ pub struct ClientService<SDK> {
     headers:    Box<dyn StoreMap<u64, Bytes>>,
 }
 
-#[service]
+#[service(Events)]
 impl<SDK: ServiceSDK> ClientService<SDK> {
     pub fn new(mut sdk: SDK) -> Self {
         let tip_number = sdk.alloc_or_recover_uint64(TIP_NUMBER_KEY);

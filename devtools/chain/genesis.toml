@@ -7,7 +7,7 @@ payload = '''
 {
     "genesis_block_hash": "0xf56924db538e77bb5951eb5ff0d02b88983c49c45eea30e8ae3e7234b311436c",
     "version": 1,
-    "pow": "Dummy",
+    "pow": "Dummy"
 }
 '''
 
