@@ -37,7 +37,8 @@ tokio = { version = "0.2", features = ["macros", "rt-core", "rt-util", "signal",
 [dev-dependencies]
 metadata = { path = "built-in-services/metadata"}
 ckb-client = { path = "built-in-services/ckb-client"}
-asset = { path = "built-in-services/asset-client"}
+asset = { path = "built-in-services/asset"}
+util = { path = "built-in-services/util"}
 ckb-sudt = { path = "built-in-services/ckb-sudt"}
 rand = "0.7"
 cita_trie = "2.0"

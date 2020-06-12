@@ -48,7 +48,7 @@ impl<SDK: ServiceSDK> SudtService<SDK> {
                 id:     id.clone(),
                 supply: amount,
             };
-            self.sudts.insert(id.clone(), sudt.clone());
+            self.sudts.insert(id.clone(), sudt);
             self.sdk.set_account_value(&receiver, id.clone(), amount);
         } else {
             let mut receiver_balance: u128 =
@@ -59,8 +59,7 @@ impl<SDK: ServiceSDK> SudtService<SDK> {
                 return ServiceResponse::<()>::from_error(ADD_OVERFLOW);
             }
             receiver_balance = v;
-            self.sdk
-                .set_account_value(&receiver, id.clone(), receiver_balance);
+            self.sdk.set_account_value(&receiver, id, receiver_balance);
         }
         emit_event!(ctx, payload);
         ServiceResponse::<()>::from_succeed(())

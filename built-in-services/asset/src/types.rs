@@ -128,7 +128,7 @@ struct AllowanceCodec {
 }
 
 #[derive(SchemaEvent)]
-pub enum Event {
+pub enum Events {
     Asset,
     TransferEvent,
     ApproveEvent,

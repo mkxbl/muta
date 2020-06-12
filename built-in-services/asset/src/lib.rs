@@ -9,10 +9,12 @@ use bytes::Bytes;
 use binding_macro::{cycles, genesis, service};
 use protocol::emit_event;
 use protocol::traits::{ExecutorParams, MetaGenerator, ServiceResponse, ServiceSDK, StoreMap};
-use protocol::types::{Address, DataMeta, Hash, MethodMeta, ServiceContext, ServiceMeta};
+use protocol::types::{
+    Address, DataMeta, Event, Hash, MethodMeta, Receipt, ServiceContext, ServiceMeta,
+};
 
 use crate::types::{
-    ApproveEvent, ApprovePayload, Asset, AssetBalance, CreateAssetPayload, Event,
+    ApproveEvent, ApprovePayload, Asset, AssetBalance, CreateAssetPayload, Events,
     GetAllowancePayload, GetAllowanceResponse, GetAssetPayload, GetBalancePayload,
     GetBalanceResponse, InitGenesisPayload, TransferEvent, TransferFromEvent, TransferFromPayload,
     TransferPayload,
@@ -23,7 +25,7 @@ pub struct AssetService<SDK> {
     assets: Box<dyn StoreMap<Hash, Asset>>,
 }
 
-#[service(Event)]
+#[service(Events)]
 impl<SDK: ServiceSDK> AssetService<SDK> {
     pub fn new(mut sdk: SDK) -> Self {
         let assets: Box<dyn StoreMap<Hash, Asset>> = sdk.alloc_or_recover_map("assets");
