@@ -20,7 +20,7 @@ pub struct GetSupplyPayload {
     pub id: Hash,
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct MintSudt {
     pub id:       Hash,
     pub sender:   Hex,

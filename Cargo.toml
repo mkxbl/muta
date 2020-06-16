@@ -37,6 +37,7 @@ tokio = { version = "0.2", features = ["macros", "rt-core", "rt-util", "signal",
 [dev-dependencies]
 metadata = { path = "built-in-services/metadata"}
 ckb-client = { path = "built-in-services/ckb-client"}
+ckb-handler = { path = "built-in-services/ckb-handler"}
 asset = { path = "built-in-services/asset"}
 util = { path = "built-in-services/util"}
 ckb-sudt = { path = "built-in-services/ckb-sudt"}

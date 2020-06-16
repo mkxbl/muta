@@ -1,4 +1,5 @@
 use ckb_client::ClientService;
+use ckb_handler::CKBHandler;
 use ckb_sudt::SudtService;
 use derive_more::{Display, From};
 use metadata::MetadataService;
@@ -18,6 +19,7 @@ impl ServiceMapping for DefaultServiceMapping {
             "metadata" => Box::new(MetadataService::new(sdk)) as Box<dyn Service>,
             "ckb_client" => Box::new(ClientService::new(sdk)) as Box<dyn Service>,
             "ckb_sudt" => Box::new(SudtService::new(sdk)) as Box<dyn Service>,
+            "ckb_handler" => Box::new(CKBHandler::new(sdk)) as Box<dyn Service>,
             _ => {
                 return Err(MappingError::NotFoundService {
                     service: name.to_owned(),
@@ -34,6 +36,7 @@ impl ServiceMapping for DefaultServiceMapping {
             "metadata".to_owned(),
             "ckb_client".to_owned(),
             "ckb_sudt".to_owned(),
+            "ckb_handler".to_owned(),
         ]
     }
 }

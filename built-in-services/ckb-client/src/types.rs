@@ -17,10 +17,11 @@ use protocol::types::{Bytes, DataMeta, FieldMeta, Hash, Hex, StructMeta};
 use protocol::{ProtocolError, ProtocolResult};
 
 #[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug)]
-pub struct Consensus {
-    pub genesis_block_hash: Hash,
-    pub version:            u32,
-    pub pow:                Pow,
+pub struct ClientConfig {
+    pub genesis_block_hash:      Hash,
+    pub version:                 u32,
+    pub pow:                     Pow,
+    pub finalized_confirmations: u64,
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -124,7 +125,7 @@ impl TryInto<HeaderBuilder> for HeaderPayload {
     }
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct VerifyTxPayload {
     pub number:  u64,
     pub indices: Vec<u32>,
