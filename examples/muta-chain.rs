@@ -1,6 +1,6 @@
-use ckb_client::ClientService;
+use ckb_client::CKBClient;
 use ckb_handler::CKBHandler;
-use ckb_sudt::SudtService;
+use ckb_sudt::CKBSudt;
 use derive_more::{Display, From};
 use metadata::MetadataService;
 use muta::MutaBuilder;
@@ -17,8 +17,8 @@ impl ServiceMapping for DefaultServiceMapping {
     ) -> ProtocolResult<Box<dyn Service>> {
         let service = match name {
             "metadata" => Box::new(MetadataService::new(sdk)) as Box<dyn Service>,
-            "ckb_client" => Box::new(ClientService::new(sdk)) as Box<dyn Service>,
-            "ckb_sudt" => Box::new(SudtService::new(sdk)) as Box<dyn Service>,
+            "ckb_client" => Box::new(CKBClient::new(sdk)) as Box<dyn Service>,
+            "ckb_sudt" => Box::new(CKBSudt::new(sdk)) as Box<dyn Service>,
             "ckb_handler" => Box::new(CKBHandler::new(sdk)) as Box<dyn Service>,
             _ => {
                 return Err(MappingError::NotFoundService {

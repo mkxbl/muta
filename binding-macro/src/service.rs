@@ -96,25 +96,30 @@ fn gen_meta_code(methods: &[MethodMeta]) -> proc_macro2::TokenStream {
 
 pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
     let event_ident = parse_macro_input!(attr as EventIdent);
-    let event_code = if let Some(ident) = event_ident.event {
+    let mut need_shema = false;
+    let mut event_code = if let Some(ident) = event_ident.event {
+        need_shema = true;
         quote! {
             let ret = #ident::meta();
-            ServiceMeta {
+            Some(ServiceMeta {
                 methods: method_metas,
                 events: ret.0,
                 method_params: register,
                 event_structs: ret.1
-            }
+            })
         }
     } else {
         quote! {
-            ServiceMeta {
-                methods: method_metas,
-                events: vec![],
-                method_params: register,
-                event_structs: BTreeMap::<String, DataMeta>::new()
-            }
+            None
         }
+        // quote! {
+        //     Some(ServiceMeta {
+        //         methods: method_metas,
+        //         events: vec![],
+        //         method_params: register,
+        //         event_structs: BTreeMap::<String, DataMeta>::new()
+        //     })
+        // }
     };
 
     let impl_item = parse_macro_input!(item as ItemImpl);
@@ -163,7 +168,13 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let list_method_meta: Vec<MethodMeta> = methods.into_iter().map(extract_method_meta).collect();
 
-    let meta_code = gen_meta_code(&list_method_meta);
+    if need_shema {
+        let meta_code = gen_meta_code(&list_method_meta);
+        event_code = quote! {
+            #meta_code
+            #event_code
+        };
+    }
 
     let (list_read_name, list_read_ident, list_read_payload) =
         split_list_for_metadata(&list_method_meta, true);
@@ -243,7 +254,7 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
                     #(#list_write_name => {
                         let payload_res: Result<#list_write_payload, _> = serde_json::from_str(ctx.get_payload());
                         if payload_res.is_err() {
-                            return ServiceResponse::<String>::from_error((1, "decode service payload failed"));
+                            return ServiceResponse::<String>::from_error((1, format!("decode service payload error: {}", payload_res.unwrap_err()).as_str()));
                         };
                         let payload = payload_res.unwrap();
                         let res = self.#list_write_ident(ctx, payload);
@@ -273,8 +284,7 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
                 }
             }
 
-            fn meta_(&self) -> ServiceMeta {
-                #meta_code
+            fn meta_(&self) -> Option<ServiceMeta> {
                 #event_code
             }
         }

@@ -23,7 +23,6 @@ pub struct GetSupplyPayload {
 #[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct MintSudt {
     pub id:       Hash,
-    pub sender:   Hex,
     pub receiver: Address,
     pub amount:   u128,
 }

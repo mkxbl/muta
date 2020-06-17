@@ -111,7 +111,7 @@ pub trait Service {
     fn read_(&self, ctx: ServiceContext) -> ServiceResponse<String>;
 
     // Return service schema: (MethodSchema, EventSchema)
-    fn meta_(&self) -> ServiceMeta;
+    fn meta_(&self) -> Option<ServiceMeta>;
 }
 
 // `ServiceSDK` provides multiple rich interfaces for `service` developers

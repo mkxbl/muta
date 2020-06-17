@@ -4,7 +4,7 @@ use std::convert::TryInto;
 use ckb_pow::{DummyPowEngine, EaglesongBlake2bPowEngine, EaglesongPowEngine, PowEngine};
 use ckb_types::core::HeaderBuilder;
 use ckb_types::packed::{Byte32, Uint128, Uint32, Uint64};
-use ckb_types::utilities::MergeByte32;
+use ckb_types::utilities::{merkle_root, MergeByte32};
 use merkle_cbt::MerkleProof;
 use molecule::prelude::Entity;
 use muta_codec_derive::RlpFixedCodec;
@@ -127,10 +127,11 @@ impl TryInto<HeaderBuilder> for HeaderPayload {
 
 #[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct VerifyTxPayload {
-    pub number:  u64,
-    pub indices: Vec<u32>,
-    pub lemmas:  Vec<Hash>,
-    pub leaves:  Vec<Hash>,
+    pub number:         u64,
+    pub indices:        Vec<u32>,
+    pub lemmas:         Vec<Hash>,
+    pub leaves:         Vec<Hash>,
+    pub witnesses_root: Hash,
 }
 
 pub type TxProof = MerkleProof<Byte32, MergeByte32>;
@@ -143,7 +144,16 @@ impl VerifyTxPayload {
             .iter()
             .map(|v| Byte32::new_unchecked(v.as_bytes()))
             .collect();
-        tx_proof.verify(root, leaves.as_slice())
+        let txs_root = tx_proof.root(leaves.as_slice());
+        if txs_root.is_none() {
+            return false;
+        }
+        let txs_root = txs_root.unwrap();
+        let witnesses_root = Byte32::new_unchecked(self.witnesses_root.as_bytes());
+        if &merkle_root(&[txs_root, witnesses_root]) != root {
+            return false;
+        }
+        true
     }
 
     fn get_tx_proof(&self) -> TxProof {

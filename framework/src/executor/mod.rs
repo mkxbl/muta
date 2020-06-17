@@ -388,7 +388,10 @@ impl<S: 'static + Storage, DB: 'static + TrieDB, Mapping: 'static + ServiceMappi
         for name in self.service_mapping.list_service_name().into_iter() {
             let sdk = self.get_sdk(&name)?;
             let service = self.service_mapping.get_service(name.as_str(), sdk)?;
-            metas.insert(name, service.meta_());
+            let meta = service.meta_();
+            if meta.is_some() {
+                metas.insert(name, meta.unwrap());
+            }
         }
         Ok(metas)
     }

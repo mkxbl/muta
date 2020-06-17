@@ -18,13 +18,13 @@ use crate::types::{
 
 const SUDTS_KEY: &str = "sudts";
 
-pub struct SudtService<SDK> {
+pub struct CKBSudt<SDK> {
     sdk:   SDK,
     sudts: Box<dyn StoreMap<Hash, Sudt>>,
 }
 
 #[service(Events)]
-impl<SDK: ServiceSDK> SudtService<SDK> {
+impl<SDK: ServiceSDK> CKBSudt<SDK> {
     pub fn new(mut sdk: SDK) -> Self {
         let sudts: Box<dyn StoreMap<Hash, Sudt>> = sdk.alloc_or_recover_map(SUDTS_KEY);
         Self { sdk, sudts }
@@ -40,7 +40,6 @@ impl<SDK: ServiceSDK> SudtService<SDK> {
             id,
             amount,
             receiver,
-            ..
         } = payload.clone();
 
         if !self.sudts.contains(&id) {
@@ -157,7 +156,7 @@ impl<SDK: ServiceSDK> SudtService<SDK> {
         for r in receipts.iter() {
             for e in r.events.iter() {
                 if "ckb_sudt" == e.service.as_str() && "BurnSudt" == e.topic.as_str() {
-                    // TODO:aggregate the event of same id, sender, receiver
+                    // TODO: aggregate the event of same id, sender, receiver
                     events.push(e.clone());
                 }
             }

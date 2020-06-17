@@ -30,7 +30,7 @@ const TIP_NUMBER_KEY: &str = "tip_number_key";
 const FINALIZED_CONFIRMATIONS: &str = "finalized_confirmations_key";
 const HEADERS_KEY: &str = "ckb_headers_key";
 
-pub struct ClientService<SDK> {
+pub struct CKBClient<SDK> {
     sdk:                     SDK,
     tip_number:              Box<dyn StoreUint64>,
     finalized_confirmations: Box<dyn StoreUint64>,
@@ -38,7 +38,7 @@ pub struct ClientService<SDK> {
 }
 
 #[service(Events)]
-impl<SDK: ServiceSDK> ClientService<SDK> {
+impl<SDK: ServiceSDK> CKBClient<SDK> {
     pub fn new(mut sdk: SDK) -> Self {
         let tip_number = sdk.alloc_or_recover_uint64(TIP_NUMBER_KEY);
         let finalized_confirmations = sdk.alloc_or_recover_uint64(FINALIZED_CONFIRMATIONS);

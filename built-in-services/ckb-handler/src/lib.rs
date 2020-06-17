@@ -1,29 +1,16 @@
 pub mod errors;
 pub mod types;
 
-use std::collections::BTreeMap;
-use std::convert::TryInto;
-
 use bytes::Bytes;
-use serde_json;
 
-use ckb_types::core::{HeaderBuilder, HeaderView, TransactionView};
-use ckb_types::packed::Header;
-use molecule::prelude::Entity;
+use ckb_types::core::TransactionView;
 
-use binding_macro::{genesis, service, write};
-use protocol::emit_event;
-use protocol::traits::{
-    ExecutorParams, MetaGenerator, ServiceResponse, ServiceSDK, StoreMap, StoreUint64,
-};
-use protocol::types::{
-    Address, DataMeta, Event, Hash, Hex, MethodMeta, Receipt, ServiceContext, ServiceMeta,
-};
+use binding_macro::{service, write};
+use protocol::traits::{ExecutorParams, ServiceResponse, ServiceSDK, StoreMap};
+use protocol::types::{Address, Event, Hash, Receipt, ServiceContext, ServiceMeta};
 
-use crate::errors::{DECODE_MSG_ERROR, MINT_SUDT_PAYLOAD_ERROR, VERIFY_MSG_PAYLOAD_ERROR};
-use crate::types::{
-    Events, MintSudtPayload, MsgPayload, MsgView, SubmitMsgPayload, VerifyMsgPayload,
-};
+use crate::errors::{MINT_SUDT_PAYLOAD_ERROR, VERIFY_MSG_PAYLOAD_ERROR};
+use crate::types::{MintSudtPayload, MsgPayload, MsgView};
 
 const HANDLED_MSGS_KEY: &str = "handled_msgs_key";
 static ADMISSION_TOKEN: Bytes = Bytes::from_static(b"ckb_handler");
@@ -33,7 +20,7 @@ pub struct CKBHandler<SDK> {
     handled_msgs: Box<dyn StoreMap<Hash, bool>>,
 }
 
-#[service(Events)]
+#[service]
 impl<SDK: ServiceSDK> CKBHandler<SDK> {
     pub fn new(mut sdk: SDK) -> Self {
         let handled_msgs = sdk.alloc_or_recover_map::<Hash, bool>(HANDLED_MSGS_KEY);
@@ -41,16 +28,8 @@ impl<SDK: ServiceSDK> CKBHandler<SDK> {
     }
 
     #[write]
-    fn submit_msg(
-        &mut self,
-        ctx: ServiceContext,
-        payload: SubmitMsgPayload,
-    ) -> ServiceResponse<()> {
-        let msg: Result<MsgPayload, _> = serde_json::from_str(payload.inner.as_str());
-        if msg.is_err() {
-            return ServiceResponse::<()>::from_error(DECODE_MSG_ERROR);
-        }
-        let msg_view = MsgView::from(msg.unwrap());
+    fn submit_msg(&mut self, ctx: ServiceContext, payload: MsgPayload) -> ServiceResponse<()> {
+        let msg_view = MsgView::from(payload);
         self.handle_msg(&ctx, &msg_view)
     }
 
@@ -115,11 +94,17 @@ impl<SDK: ServiceSDK> CKBHandler<SDK> {
         return ServiceResponse::<()>::from_succeed(());
     }
 
-    fn get_mint_sudt_payload(&self, tx: &TransactionView) -> ServiceResponse<MintSudtPayload> {
+    fn get_mint_sudt_payload(&self, _tx: &TransactionView) -> ServiceResponse<MintSudtPayload> {
         // TODO verify and extract payload from transaction_view
+        // let output = tx.output(1);
+        // if output.is_none() {
+        //     return ServiceResponse::<MintSudtPayload>::from_error(CKB_TX_ERROR);
+        // }
+        // let lock_script = output.unwrap().lock();
+        // let lock_script_code_hash = lock_script.code_hash();
+        // let type_script = output.unwrap().type_();
         let payload = MintSudtPayload {
             id:       Hash::from_empty(),
-            sender:   Hex::default(),
             receiver: Address::default(),
             amount:   0,
         };
