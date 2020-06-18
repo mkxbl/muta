@@ -34,7 +34,7 @@ pub struct MintSudt {
 
 #[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct NewRelayerEvent {
-    new_relayer: Address,
+    pub new_relayer: Bytes,
 }
 
 #[derive(SchemaEvent)]

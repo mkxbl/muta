@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 use binding_macro::{genesis, service, write};
 use common_crypto::{Crypto, Secp256k1};
 use protocol::emit_event;
+use protocol::traits::MetaGenerator;
 use protocol::traits::{ExecutorParams, ServiceResponse, ServiceSDK};
 use protocol::types::{
     Address, DataMeta, Event, Hash, Hex, MethodMeta, Receipt, ServiceContext, ServiceMeta,
@@ -48,18 +49,15 @@ impl<SDK: ServiceSDK> CKBHandler<SDK> {
             return ServiceResponse::<()>::from_error(PERMISSION_ERROR);
         }
         self.sdk
-            .set_value(RELAYER_ADDRESS_KEY.to_owned(), new_relayer);
+            .set_value(RELAYER_ADDRESS_KEY.to_owned(), new_relayer.clone());
 
-        let new_relayer_event = NewRelayerEvent {
-            new_relayer: Address::from_pubkey_bytes(new_relayer)
-                .expect("relayer address should never be invalid"),
-        };
+        let new_relayer_event = NewRelayerEvent { new_relayer };
         emit_event!(ctx, new_relayer_event);
         ServiceResponse::<()>::from_succeed(())
     }
 
     #[write]
-    fn submit_msg(&mut self, ctx: ServiceContext, msg: CrossMessage) -> ServiceResponse<()> {
+    fn submit_message(&mut self, ctx: ServiceContext, msg: CrossMessage) -> ServiceResponse<()> {
         if let Err(e) = self.verify_message(&msg) {
             return e.to_response::<()>();
         }
