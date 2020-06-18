@@ -14,11 +14,13 @@ use crate::types::{KeccakPayload, KeccakResponse, SigVerifyPayload, SigVerifyRes
 mod tests;
 pub mod types;
 
+struct _EnableSchema {}
+
 pub struct UtilService<SDK> {
     _sdk: SDK,
 }
 
-#[service]
+#[service(_EnableSchema)]
 impl<SDK: ServiceSDK> UtilService<SDK> {
     pub fn new(_sdk: SDK) -> Self {
         Self { _sdk }

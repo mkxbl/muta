@@ -2,112 +2,116 @@ pub mod errors;
 pub mod types;
 
 use bytes::Bytes;
+use std::collections::BTreeMap;
 
-use ckb_types::core::TransactionView;
+use binding_macro::{genesis, service, write};
+use common_crypto::{Crypto, Secp256k1};
+use protocol::emit_event;
+use protocol::traits::{ExecutorParams, ServiceResponse, ServiceSDK};
+use protocol::types::{
+    Address, DataMeta, Event, Hash, Hex, MethodMeta, Receipt, ServiceContext, ServiceMeta,
+};
 
-use binding_macro::{service, write};
-use protocol::traits::{ExecutorParams, ServiceResponse, ServiceSDK, StoreMap};
-use protocol::types::{Address, Event, Hash, Receipt, ServiceContext, ServiceMeta};
+use crate::errors::{ServiceError, PERMISSION_ERROR};
+use crate::types::{BatchMintSudt, CrossMessage, Events, HandlerConfig, NewRelayerEvent};
 
-use crate::errors::{MINT_SUDT_PAYLOAD_ERROR, VERIFY_MSG_PAYLOAD_ERROR};
-use crate::types::{MintSudtPayload, MsgPayload, MsgView};
-
-const HANDLED_MSGS_KEY: &str = "handled_msgs_key";
+const RELAYER_PUBKEY_KEY: &str = "relayer_pubkey_key";
+const RELAYER_ADDRESS_KEY: &str = "relayer_address_key";
 static ADMISSION_TOKEN: Bytes = Bytes::from_static(b"ckb_handler");
 
 pub struct CKBHandler<SDK> {
-    sdk:          SDK,
-    handled_msgs: Box<dyn StoreMap<Hash, bool>>,
+    sdk: SDK,
 }
 
-#[service]
+#[service(Events)]
 impl<SDK: ServiceSDK> CKBHandler<SDK> {
-    pub fn new(mut sdk: SDK) -> Self {
-        let handled_msgs = sdk.alloc_or_recover_map::<Hash, bool>(HANDLED_MSGS_KEY);
-        Self { sdk, handled_msgs }
+    pub fn new(sdk: SDK) -> Self {
+        Self { sdk }
+    }
+
+    #[genesis]
+    fn init_genesis(&mut self, config: HandlerConfig) {
+        self.sdk
+            .set_value(RELAYER_PUBKEY_KEY.to_owned(), config.relayer_pubkey)
     }
 
     #[write]
-    fn submit_msg(&mut self, ctx: ServiceContext, payload: MsgPayload) -> ServiceResponse<()> {
-        let msg_view = MsgView::from(payload);
-        self.handle_msg(&ctx, &msg_view)
-    }
+    fn set_relayer(&mut self, ctx: ServiceContext, new_relayer: Bytes) -> ServiceResponse<()> {
+        let relayer: Bytes = self
+            .sdk
+            .get_value(&RELAYER_PUBKEY_KEY.to_owned())
+            .expect("relayer address should never be none");
+        let relayer_address =
+            Address::from_pubkey_bytes(relayer).expect("relayer address should never be invalid");
 
-    fn handle_msg(&mut self, ctx: &ServiceContext, msg: &MsgView) -> ServiceResponse<()> {
-        let res = self.verify_msg(ctx, msg);
-        if !res.is_error() {
-            return res;
+        if relayer_address != ctx.get_caller() {
+            return ServiceResponse::<()>::from_error(PERMISSION_ERROR);
         }
+        self.sdk
+            .set_value(RELAYER_ADDRESS_KEY.to_owned(), new_relayer);
 
-        self.run_msg(ctx, msg)
-    }
-
-    fn verify_msg(&self, ctx: &ServiceContext, msg: &MsgView) -> ServiceResponse<()> {
-        let payload = msg.get_verify_payload();
-        let payload_json = serde_json::to_string(&payload);
-        if payload_json.is_err() {
-            return ServiceResponse::<()>::from_error(VERIFY_MSG_PAYLOAD_ERROR);
-        }
-        let verify_response = self.sdk.read(
-            ctx,
-            Some(ADMISSION_TOKEN.clone()),
-            "ckb_client",
-            "verify_tx",
-            &payload_json.unwrap(),
-        );
-        if verify_response.is_error() {
-            return ServiceResponse::<()>::from_error((
-                verify_response.code,
-                verify_response.error_message.as_str(),
-            ));
-        }
-        return ServiceResponse::<()>::from_succeed(());
-    }
-
-    fn run_msg(&mut self, ctx: &ServiceContext, msg: &MsgView) -> ServiceResponse<()> {
-        for tx in msg.txs.iter() {
-            let payload_response = self.get_mint_sudt_payload(tx);
-            if payload_response.is_error() {
-                return ServiceResponse::<()>::from_error((
-                    payload_response.code,
-                    payload_response.error_message.as_str(),
-                ));
-            }
-            let payload_json = serde_json::to_string(&payload_response.succeed_data);
-            if payload_json.is_err() {
-                return ServiceResponse::<()>::from_error(MINT_SUDT_PAYLOAD_ERROR);
-            }
-            let mint_response = self.sdk.write(
-                ctx,
-                Some(ADMISSION_TOKEN.clone()),
-                "ckb_sudt",
-                "mint_sudt",
-                &payload_json.unwrap(),
-            );
-            if mint_response.is_error() {
-                return ServiceResponse::<()>::from_error((
-                    mint_response.code,
-                    mint_response.error_message.as_str(),
-                ));
-            }
-        }
-        return ServiceResponse::<()>::from_succeed(());
-    }
-
-    fn get_mint_sudt_payload(&self, _tx: &TransactionView) -> ServiceResponse<MintSudtPayload> {
-        // TODO verify and extract payload from transaction_view
-        // let output = tx.output(1);
-        // if output.is_none() {
-        //     return ServiceResponse::<MintSudtPayload>::from_error(CKB_TX_ERROR);
-        // }
-        // let lock_script = output.unwrap().lock();
-        // let lock_script_code_hash = lock_script.code_hash();
-        // let type_script = output.unwrap().type_();
-        let payload = MintSudtPayload {
-            id:       Hash::from_empty(),
-            receiver: Address::default(),
-            amount:   0,
+        let new_relayer_event = NewRelayerEvent {
+            new_relayer: Address::from_pubkey_bytes(new_relayer)
+                .expect("relayer address should never be invalid"),
         };
-        ServiceResponse::<MintSudtPayload>::from_succeed(payload)
+        emit_event!(ctx, new_relayer_event);
+        ServiceResponse::<()>::from_succeed(())
+    }
+
+    #[write]
+    fn submit_msg(&mut self, ctx: ServiceContext, msg: CrossMessage) -> ServiceResponse<()> {
+        if let Err(e) = self.verify_message(&msg) {
+            return e.to_response::<()>();
+        }
+        if let Err(e) = self.run_message(&ctx, &msg.payload) {
+            return e.to_response::<()>();
+        }
+
+        ServiceResponse::<()>::from_succeed(())
+    }
+
+    fn verify_message(&self, msg: &CrossMessage) -> Result<(), ServiceError> {
+        let payload = msg
+            .payload
+            .as_bytes()
+            .map_err(|e| ServiceError::InvalidMessagePayload(format!("{}", e)))?;
+        let payload_hash = Hash::digest(payload);
+        let signature = msg
+            .signature
+            .as_bytes()
+            .map_err(|e| ServiceError::InvalidMessageSignature(format!("{}", e)))?;
+        let pubkey: Bytes = self
+            .sdk
+            .get_value(&RELAYER_PUBKEY_KEY.to_owned())
+            .expect("relayer pubkey should never be none");
+        Secp256k1::verify_signature(
+            payload_hash.as_bytes().as_ref(),
+            signature.as_ref(),
+            pubkey.as_ref(),
+        )
+        .map_err(|e| ServiceError::InvalidMessageSignature(format!("{}", e)))
+    }
+
+    fn run_message(&mut self, ctx: &ServiceContext, msg: &Hex) -> Result<(), ServiceError> {
+        let payload = msg
+            .as_bytes()
+            .map_err(|e| ServiceError::InvalidMessagePayload(format!("{}", e)))?;
+        let payload: BatchMintSudt = rlp::decode(payload.as_ref())
+            .map_err(|e| ServiceError::InvalidMessagePayload(format!("{}", e)))?;
+
+        let payload_json = serde_json::to_string(&payload)
+            .map_err(|e| ServiceError::JsonEncode(format!("{}", e)))?;
+        let res = self.sdk.write(
+            &ctx,
+            Some(ADMISSION_TOKEN.clone()),
+            "ckb_sudt",
+            "mint_sudts",
+            &payload_json,
+        );
+        if res.is_error() {
+            return Err(ServiceError::CallService((res.code, res.error_message)));
+        }
+
+        Ok(())
     }
 }

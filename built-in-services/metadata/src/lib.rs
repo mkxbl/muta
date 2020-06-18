@@ -9,11 +9,13 @@ use protocol::types::{
     DataMeta, Event, Metadata, MethodMeta, Receipt, ServiceContext, ServiceMeta, METADATA_KEY,
 };
 
+struct _EnableSchema {}
+
 pub struct MetadataService<SDK> {
     sdk: SDK,
 }
 
-#[service]
+#[service(_EnableSchema)]
 impl<SDK: ServiceSDK> MetadataService<SDK> {
     pub fn new(sdk: SDK) -> Self {
         Self { sdk }

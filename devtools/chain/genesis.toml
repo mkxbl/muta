@@ -2,13 +2,11 @@ timestamp = 0
 prevhash = "0x44915be5b6c20b0678cf05fcddbbaa832e25d7e6ac538784cd5c24de00d47472"
 
 [[services]]
-name = "ckb_client"
+name = "ckb_handler"
 payload = '''
 {
-    "genesis_block_hash": "0xf56924db538e77bb5951eb5ff0d02b88983c49c45eea30e8ae3e7234b311436c",
-    "version": 1,
-    "pow": "Dummy",
-    "finalized_confirmations": 6
+    "relayer_pubkey": "0x031288a6788678c25952eba8693b2f278f66e2187004b64ac09416d07f83f96d5b"
+ 
 }
 '''
 

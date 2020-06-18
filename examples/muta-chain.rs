@@ -1,4 +1,3 @@
-use ckb_client::CKBClient;
 use ckb_handler::CKBHandler;
 use ckb_sudt::CKBSudt;
 use derive_more::{Display, From};
@@ -17,7 +16,6 @@ impl ServiceMapping for DefaultServiceMapping {
     ) -> ProtocolResult<Box<dyn Service>> {
         let service = match name {
             "metadata" => Box::new(MetadataService::new(sdk)) as Box<dyn Service>,
-            "ckb_client" => Box::new(CKBClient::new(sdk)) as Box<dyn Service>,
             "ckb_sudt" => Box::new(CKBSudt::new(sdk)) as Box<dyn Service>,
             "ckb_handler" => Box::new(CKBHandler::new(sdk)) as Box<dyn Service>,
             _ => {
@@ -34,7 +32,6 @@ impl ServiceMapping for DefaultServiceMapping {
     fn list_service_name(&self) -> Vec<String> {
         vec![
             "metadata".to_owned(),
-            "ckb_client".to_owned(),
             "ckb_sudt".to_owned(),
             "ckb_handler".to_owned(),
         ]

@@ -339,3 +339,4 @@ impl_scalar_meta![String, "String"];
 impl_scalar_meta![Address, "Address", "20 bytes of account address"];
 impl_scalar_meta![Hash, "Hash", "The output digest of Keccak hash function"];
 impl_scalar_meta![Hex, "Hex", "String started with 0x"];
+impl_scalar_meta![Bytes, "Bytes"];
