@@ -4,7 +4,7 @@ pub mod types;
 use bytes::Bytes;
 use std::collections::BTreeMap;
 
-use binding_macro::{genesis, service, write};
+use binding_macro::{genesis, read, service, write};
 use common_crypto::{Crypto, Secp256k1};
 use protocol::emit_event;
 use protocol::traits::MetaGenerator;
@@ -14,7 +14,7 @@ use protocol::types::{
 };
 
 use crate::errors::{ServiceError, PERMISSION_ERROR};
-use crate::types::{BatchMintSudt, CrossMessage, Events, HandlerConfig, NewRelayerEvent};
+use crate::types::{BatchMintSudt, CKBMessage, Events, HandlerGenesis, NewRelayerEvent};
 
 const RELAYER_PUBKEY_KEY: &str = "relayer_pubkey_key";
 const RELAYER_ADDRESS_KEY: &str = "relayer_address_key";
@@ -31,21 +31,24 @@ impl<SDK: ServiceSDK> CKBHandler<SDK> {
     }
 
     #[genesis]
-    fn init_genesis(&mut self, config: HandlerConfig) {
+    fn init_genesis(&mut self, genesis: HandlerGenesis) {
         self.sdk
-            .set_value(RELAYER_PUBKEY_KEY.to_owned(), config.relayer_pubkey)
+            .set_value(RELAYER_PUBKEY_KEY.to_owned(), genesis.relayer_pubkey)
     }
 
     #[write]
-    fn set_relayer(&mut self, ctx: ServiceContext, new_relayer: Bytes) -> ServiceResponse<()> {
-        let relayer: Bytes = self
+    fn set_relayer(&mut self, ctx: ServiceContext, new_relayer: Hex) -> ServiceResponse<()> {
+        let relayer: Hex = self
             .sdk
             .get_value(&RELAYER_PUBKEY_KEY.to_owned())
             .expect("relayer address should never be none");
-        let relayer_address =
+        let relayer = relayer
+            .as_bytes()
+            .expect("relayer pubkey hex should never be invalid");
+        let relayer =
             Address::from_pubkey_bytes(relayer).expect("relayer address should never be invalid");
 
-        if relayer_address != ctx.get_caller() {
+        if relayer != ctx.get_caller() {
             return ServiceResponse::<()>::from_error(PERMISSION_ERROR);
         }
         self.sdk
@@ -56,19 +59,27 @@ impl<SDK: ServiceSDK> CKBHandler<SDK> {
         ServiceResponse::<()>::from_succeed(())
     }
 
+    #[read]
+    fn get_relayer(&self, _ctx: ServiceContext) -> ServiceResponse<Hex> {
+        let relayer: Hex = self
+            .sdk
+            .get_value(&RELAYER_PUBKEY_KEY.to_owned())
+            .expect("relayer pubkey should never be none");
+        ServiceResponse::<Hex>::from_succeed(relayer)
+    }
+
     #[write]
-    fn submit_message(&mut self, ctx: ServiceContext, msg: CrossMessage) -> ServiceResponse<()> {
+    fn submit_message(&mut self, ctx: ServiceContext, msg: CKBMessage) -> ServiceResponse<()> {
         if let Err(e) = self.verify_message(&msg) {
             return e.to_response::<()>();
         }
         if let Err(e) = self.run_message(&ctx, &msg.payload) {
             return e.to_response::<()>();
         }
-
         ServiceResponse::<()>::from_succeed(())
     }
 
-    fn verify_message(&self, msg: &CrossMessage) -> Result<(), ServiceError> {
+    fn verify_message(&self, msg: &CKBMessage) -> Result<(), ServiceError> {
         let payload = msg
             .payload
             .as_bytes()
@@ -78,10 +89,14 @@ impl<SDK: ServiceSDK> CKBHandler<SDK> {
             .signature
             .as_bytes()
             .map_err(|e| ServiceError::InvalidMessageSignature(format!("{}", e)))?;
-        let pubkey: Bytes = self
+        let pubkey: Hex = self
             .sdk
             .get_value(&RELAYER_PUBKEY_KEY.to_owned())
             .expect("relayer pubkey should never be none");
+        let pubkey = pubkey
+            .as_bytes()
+            .expect("relayer pubkey hex should never be invalid");
+
         Secp256k1::verify_signature(
             payload_hash.as_bytes().as_ref(),
             signature.as_ref(),

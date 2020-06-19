@@ -134,7 +134,7 @@ impl<SDK: ServiceSDK> CKBSudt<SDK> {
         let mut events = Vec::<Event>::new();
         for r in receipts.iter() {
             for e in r.events.iter() {
-                if "ckb_sudt" == e.service.as_str() && "BurnSudt" == e.topic.as_str() {
+                if "ckb_sudt" == e.service.as_str() && "BurnSudtEvent" == e.topic.as_str() {
                     // TODO: aggregate the event of same id, sender, receiver
                     events.push(e.clone());
                 }

@@ -10,12 +10,12 @@ use protocol::types::{Address, Bytes, DataMeta, FieldMeta, Hash, Hex, StructMeta
 use protocol::ProtocolResult;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct HandlerConfig {
-    pub relayer_pubkey: Bytes,
+pub struct HandlerGenesis {
+    pub relayer_pubkey: Hex,
 }
 
 #[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
-pub struct CrossMessage {
+pub struct CKBMessage {
     pub payload:   Hex,
     pub signature: Hex,
 }
@@ -34,34 +34,10 @@ pub struct MintSudt {
 
 #[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct NewRelayerEvent {
-    pub new_relayer: Bytes,
+    pub new_relayer: Hex,
 }
 
 #[derive(SchemaEvent)]
 pub enum Events {
     NewRelayerEvent,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use protocol::fixed_codec::{FixedCodec, FixedCodecError};
-
-    #[test]
-    fn test_payload() {
-        let mint_payload = MintSudt {
-            id:       Hash::from_hex(
-                "0xf56924db538e77bb5951eb5ff0d02b88983c49c45eea30e8ae3e7234b311436c",
-            )
-            .unwrap(),
-            receiver: Address::from_hex("0xf8389d774afdad8755ef8e629e5a154fddc6325a").unwrap(),
-            amount:   100,
-        };
-        let payload = BatchMintSudt {
-            batch: vec![mint_payload.clone(), mint_payload],
-        };
-        let payload_bytes = payload.encode_fixed().unwrap();
-        let payload_hex = "0x".to_owned() + &hex::encode(payload_bytes);
-        println!("{}", payload_hex)
-    }
 }

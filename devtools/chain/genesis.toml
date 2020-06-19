@@ -5,8 +5,7 @@ prevhash = "0x44915be5b6c20b0678cf05fcddbbaa832e25d7e6ac538784cd5c24de00d47472"
 name = "ckb_handler"
 payload = '''
 {
-    "relayer_pubkey": "0x031288a6788678c25952eba8693b2f278f66e2187004b64ac09416d07f83f96d5b"
- 
+    "relayer_pubkey": "0x037d7f0255271bb468bdaa46f0dfd5f6130f1c8ea2c1bc016d69df0b4ddee1cc4f"
 }
 '''
 
