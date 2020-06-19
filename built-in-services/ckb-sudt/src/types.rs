@@ -15,7 +15,7 @@ pub struct Sudt {
     pub supply: u128,
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct GetSupplyPayload {
     pub id: Hash,
 }
@@ -27,29 +27,34 @@ pub struct MintSudt {
     pub amount:   u128,
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
+pub struct BatchMintSudt {
+    pub batch: Vec<MintSudt>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct BurnSudtPayload {
     pub id:       Hash,
     pub receiver: Hex,
     pub amount:   u128,
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
-pub struct BurnSudt {
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
+pub struct BurnSudtEvent {
     pub id:       Hash,
     pub sender:   Address,
     pub receiver: Hex,
     pub amount:   u128,
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct TransferPayload {
     pub id:     Hash,
     pub to:     Address,
     pub amount: u128,
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct TransferEvent {
     pub id:     Hash,
     pub from:   Address,
@@ -57,13 +62,13 @@ pub struct TransferEvent {
     pub amount: u128,
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct GetBalancePayload {
     pub id:   Hash,
     pub user: Address,
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, Default, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default, SchemaObject)]
 pub struct GetBalanceResponse {
     pub id:      Hash,
     pub user:    Address,
@@ -73,6 +78,6 @@ pub struct GetBalanceResponse {
 #[derive(SchemaEvent)]
 pub enum Events {
     MintSudt,
-    BurnSudt,
+    BurnSudtEvent,
     TransferEvent,
 }

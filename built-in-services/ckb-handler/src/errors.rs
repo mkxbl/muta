@@ -1,10 +1,17 @@
 use protocol::traits::ServiceResponse;
 
-pub(crate) const DECODE_MSG_ERROR: (u64, &str) = (101, "decode message error");
-pub(crate) const VERIFY_MSG_PAYLOAD_ERROR: (u64, &str) =
-    (102, "verify_msg_payload json encode error");
-pub(crate) const MINT_SUDT_PAYLOAD_ERROR: (u64, &str) =
-    (103, "mint_sudt_payload json encode error");
-pub(crate) const CKB_TX_ERROR: (u64, &str) = (104, "ckb transaction should contain outputs");
+pub(crate) enum ServiceError {
+    JsonEncode(String),
+    InvalidCKBTx(String),
+    CallService((u64, String)),
+}
 
-pub(crate) enum ServiceError {}
+impl ServiceError {
+    pub fn to_response<T: std::default::Default>(&self) -> ServiceResponse<T> {
+        match self {
+            Self::JsonEncode(e) => ServiceResponse::<T>::from_error((101, e.as_str())),
+            Self::InvalidCKBTx(e) => ServiceResponse::<T>::from_error((102, e.as_str())),
+            Self::CallService((c, e)) => ServiceResponse::<T>::from_error((*c, e.as_str())),
+        }
+    }
+}

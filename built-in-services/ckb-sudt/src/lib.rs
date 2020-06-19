@@ -12,8 +12,8 @@ use protocol::types::{
 
 use crate::errors::*;
 use crate::types::{
-    BurnSudt, BurnSudtPayload, Events, GetBalancePayload, GetBalanceResponse, GetSupplyPayload,
-    MintSudt, Sudt, TransferEvent, TransferPayload,
+    BatchMintSudt, BurnSudtEvent, BurnSudtPayload, Events, GetBalancePayload, GetBalanceResponse,
+    GetSupplyPayload, MintSudt, Sudt, TransferEvent, TransferPayload,
 };
 
 const SUDTS_KEY: &str = "sudts";
@@ -31,36 +31,16 @@ impl<SDK: ServiceSDK> CKBSudt<SDK> {
     }
 
     #[write]
-    fn mint_sudt(&mut self, ctx: ServiceContext, payload: MintSudt) -> ServiceResponse<()> {
+    fn mint_sudts(&mut self, ctx: ServiceContext, payload: BatchMintSudt) -> ServiceResponse<()> {
         if ctx.get_extra().is_none() {
             return ServiceResponse::<()>::from_error(PERMISSION_ERROR);
         }
-
-        let MintSudt {
-            id,
-            amount,
-            receiver,
-        } = payload.clone();
-
-        if !self.sudts.contains(&id) {
-            let sudt = Sudt {
-                id:     id.clone(),
-                supply: amount,
-            };
-            self.sudts.insert(id.clone(), sudt);
-            self.sdk.set_account_value(&receiver, id.clone(), amount);
-        } else {
-            let mut receiver_balance: u128 =
-                self.sdk.get_account_value(&receiver, &id).unwrap_or(0);
-
-            let (v, overflow) = receiver_balance.overflowing_add(amount);
-            if overflow {
-                return ServiceResponse::<()>::from_error(ADD_OVERFLOW);
+        for single_payload in payload.batch.into_iter() {
+            if let Err(e) = self.mint_sudt(&single_payload) {
+                return ServiceResponse::from_error(e);
             }
-            receiver_balance = v;
-            self.sdk.set_account_value(&receiver, id, receiver_balance);
+            emit_event!(ctx, single_payload);
         }
-        emit_event!(ctx, payload);
         ServiceResponse::<()>::from_succeed(())
     }
 
@@ -72,21 +52,20 @@ impl<SDK: ServiceSDK> CKBSudt<SDK> {
             receiver,
             amount,
         } = payload;
+
         if !self.sudts.contains(&id) {
             return ServiceResponse::<()>::from_error(SUDT_NOT_EXISTED);
         }
 
         let mut sender_balance: u128 = self.sdk.get_account_value(&sender, &id).unwrap_or(0);
-
         if sender_balance < amount {
             return ServiceResponse::<()>::from_error(INSUFFICIENT_FUNDS);
         }
-
         sender_balance -= amount;
         self.sdk
             .set_account_value(&sender, id.clone(), sender_balance);
 
-        emit_event!(ctx, BurnSudt {
+        emit_event!(ctx, BurnSudtEvent {
             id: id.clone(),
             sender: sender.clone(),
             receiver: receiver.clone(),
@@ -155,7 +134,7 @@ impl<SDK: ServiceSDK> CKBSudt<SDK> {
         let mut events = Vec::<Event>::new();
         for r in receipts.iter() {
             for e in r.events.iter() {
-                if "ckb_sudt" == e.service.as_str() && "BurnSudt" == e.topic.as_str() {
+                if "ckb_sudt" == e.service.as_str() && "BurnSudtEvent" == e.topic.as_str() {
                     // TODO: aggregate the event of same id, sender, receiver
                     events.push(e.clone());
                 }
@@ -166,6 +145,34 @@ impl<SDK: ServiceSDK> CKBSudt<SDK> {
         } else {
             Some(events)
         }
+    }
+
+    fn mint_sudt(&mut self, payload: &MintSudt) -> Result<(), (u64, &str)> {
+        let MintSudt {
+            id,
+            amount,
+            receiver,
+        } = payload.clone();
+
+        if !self.sudts.contains(&id) {
+            let sudt = Sudt {
+                id:     id.clone(),
+                supply: amount,
+            };
+            self.sudts.insert(id.clone(), sudt);
+            self.sdk.set_account_value(&receiver, id.clone(), amount);
+        } else {
+            let mut receiver_balance: u128 =
+                self.sdk.get_account_value(&receiver, &id).unwrap_or(0);
+
+            let (v, overflow) = receiver_balance.overflowing_add(amount);
+            if overflow {
+                return Err(ADD_OVERFLOW);
+            }
+            receiver_balance = v;
+            self.sdk.set_account_value(&receiver, id, receiver_balance);
+        }
+        Ok(())
     }
 
     fn _transfer(

@@ -13,7 +13,9 @@ pub struct MetadataService<SDK> {
     sdk: SDK,
 }
 
-#[service]
+struct _EnableSchema {}
+
+#[service(_EnableSchema)]
 impl<SDK: ServiceSDK> MetadataService<SDK> {
     pub fn new(sdk: SDK) -> Self {
         Self { sdk }

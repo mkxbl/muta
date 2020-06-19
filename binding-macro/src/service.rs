@@ -99,27 +99,30 @@ pub fn gen_service_code(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut need_shema = false;
     let mut event_code = if let Some(ident) = event_ident.event {
         need_shema = true;
-        quote! {
-            let ret = #ident::meta();
-            Some(ServiceMeta {
-                methods: method_metas,
-                events: ret.0,
-                method_params: register,
-                event_structs: ret.1
-            })
+        if ident.to_string() == "Events".to_string() {
+            quote! {
+                let ret = #ident::meta();
+                Some(ServiceMeta {
+                    methods: method_metas,
+                    events: ret.0,
+                    method_params: register,
+                    event_structs: ret.1
+                })
+            }
+        } else {
+            quote! {
+                Some(ServiceMeta {
+                    methods: method_metas,
+                    events: vec![],
+                    method_params: register,
+                    event_structs: BTreeMap::<String, DataMeta>::new()
+                })
+            }
         }
     } else {
         quote! {
             None
         }
-        // quote! {
-        //     Some(ServiceMeta {
-        //         methods: method_metas,
-        //         events: vec![],
-        //         method_params: register,
-        //         event_structs: BTreeMap::<String, DataMeta>::new()
-        //     })
-        // }
     };
 
     let impl_item = parse_macro_input!(item as ItemImpl);

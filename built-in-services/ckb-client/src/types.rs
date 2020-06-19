@@ -74,12 +74,12 @@ impl FixedCodec for Pow {
     }
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct HeadersPayload {
     pub headers: Vec<HeaderPayload>,
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct HeaderPayload {
     pub compact_target:    Hex,
     pub version:           Hex,
@@ -166,7 +166,7 @@ impl VerifyTxPayload {
         )
     }
 }
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct SubmitHeadersEvent {
     pub start_number: u64,
     pub end_number:   u64,

@@ -18,7 +18,9 @@ pub struct UtilService<SDK> {
     _sdk: SDK,
 }
 
-#[service]
+struct _EnableSchema {}
+
+#[service(_EnableSchema)]
 impl<SDK: ServiceSDK> UtilService<SDK> {
     pub fn new(_sdk: SDK) -> Self {
         Self { _sdk }
