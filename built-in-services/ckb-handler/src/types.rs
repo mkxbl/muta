@@ -14,7 +14,7 @@ pub struct HandlerGenesis {
     pub relayer_pubkey: Hex,
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct CKBMessage {
     pub payload:   Hex,
     pub signature: Hex,
@@ -32,12 +32,18 @@ pub struct MintSudt {
     pub amount:   u128,
 }
 
-#[derive(RlpFixedCodec, Deserialize, Serialize, Clone, Debug, SchemaObject)]
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
 pub struct NewRelayerEvent {
     pub new_relayer: Hex,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug, SchemaObject)]
+pub struct MessageSubmittedEvent {
+    pub message_hash: Hash,
 }
 
 #[derive(SchemaEvent)]
 pub enum Events {
     NewRelayerEvent,
+    MessageSubmittedEvent,
 }

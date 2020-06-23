@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 pub mod errors;
 pub mod types;
 
@@ -8,26 +11,34 @@ use binding_macro::{genesis, read, service, write};
 use common_crypto::{Crypto, Secp256k1};
 use protocol::emit_event;
 use protocol::traits::MetaGenerator;
-use protocol::traits::{ExecutorParams, ServiceResponse, ServiceSDK};
+use protocol::traits::{ExecutorParams, ServiceResponse, ServiceSDK, StoreMap};
 use protocol::types::{
     Address, DataMeta, Event, Hash, Hex, MethodMeta, Receipt, ServiceContext, ServiceMeta,
 };
 
 use crate::errors::{ServiceError, PERMISSION_ERROR};
-use crate::types::{BatchMintSudt, CKBMessage, Events, HandlerGenesis, NewRelayerEvent};
+use crate::types::{
+    BatchMintSudt, CKBMessage, Events, HandlerGenesis, MessageSubmittedEvent, NewRelayerEvent,
+};
 
 const RELAYER_PUBKEY_KEY: &str = "relayer_pubkey_key";
 const RELAYER_ADDRESS_KEY: &str = "relayer_address_key";
+const HANDLED_MESSAGES_KEY: &str = "handled_messages_key";
 static ADMISSION_TOKEN: Bytes = Bytes::from_static(b"ckb_handler");
 
 pub struct CKBHandler<SDK> {
-    sdk: SDK,
+    sdk:              SDK,
+    handled_messages: Box<dyn StoreMap<Hash, bool>>,
 }
 
 #[service(Events)]
 impl<SDK: ServiceSDK> CKBHandler<SDK> {
-    pub fn new(sdk: SDK) -> Self {
-        Self { sdk }
+    pub fn new(mut sdk: SDK) -> Self {
+        let handled_messages = sdk.alloc_or_recover_map::<Hash, bool>(HANDLED_MESSAGES_KEY);
+        Self {
+            sdk,
+            handled_messages,
+        }
     }
 
     #[genesis]
@@ -70,21 +81,25 @@ impl<SDK: ServiceSDK> CKBHandler<SDK> {
 
     #[write]
     fn submit_message(&mut self, ctx: ServiceContext, msg: CKBMessage) -> ServiceResponse<()> {
-        if let Err(e) = self.verify_message(&msg) {
-            return e.to_response::<()>();
-        }
+        let message_hash = match self.verify_message(&msg) {
+            Ok(hash) => hash,
+            Err(e) => return e.to_response::<()>(),
+        };
         if let Err(e) = self.run_message(&ctx, &msg.payload) {
             return e.to_response::<()>();
         }
+        self.handled_messages.insert(message_hash.clone(), true);
+        let message_submitted_event = MessageSubmittedEvent { message_hash };
+        emit_event!(ctx, message_submitted_event);
         ServiceResponse::<()>::from_succeed(())
     }
 
-    fn verify_message(&self, msg: &CKBMessage) -> Result<(), ServiceError> {
+    fn verify_message(&self, msg: &CKBMessage) -> Result<Hash, ServiceError> {
         let payload = msg
             .payload
             .as_bytes()
             .map_err(|e| ServiceError::InvalidMessagePayload(format!("{}", e)))?;
-        let payload_hash = Hash::digest(payload);
+        let message_hash = Hash::digest(payload);
         let signature = msg
             .signature
             .as_bytes()
@@ -98,11 +113,13 @@ impl<SDK: ServiceSDK> CKBHandler<SDK> {
             .expect("relayer pubkey hex should never be invalid");
 
         Secp256k1::verify_signature(
-            payload_hash.as_bytes().as_ref(),
+            message_hash.as_bytes().as_ref(),
             signature.as_ref(),
             pubkey.as_ref(),
         )
-        .map_err(|e| ServiceError::InvalidMessageSignature(format!("{}", e)))
+        .map_err(|e| ServiceError::InvalidMessageSignature(format!("{}", e)))?;
+
+        Ok(message_hash)
     }
 
     fn run_message(&mut self, ctx: &ServiceContext, msg: &Hex) -> Result<(), ServiceError> {

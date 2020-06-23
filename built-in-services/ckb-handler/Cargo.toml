@@ -33,3 +33,5 @@ merkle-cbt = "0.2.2"
 cita_trie = "2.0"
 async-trait = "0.1"
 framework = { path = "../../framework" }
+ckb-sudt = { path = "../ckb-sudt" }
+toml = "0.5"
