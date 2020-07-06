@@ -7,7 +7,6 @@ use cita_trie::MemoryDB;
 
 use common_crypto::{HashValue, PrivateKey, Secp256k1PrivateKey, Signature};
 use framework::executor::ServiceExecutor;
-use protocol::fixed_codec::FixedCodec;
 use protocol::traits::{Executor, ExecutorParams, Service, ServiceMapping, ServiceSDK, Storage};
 use protocol::types::{
     Address, Block, BlockHookReceipt, Genesis, Hash, Hex, Proof, RawTransaction, Receipt,
@@ -102,7 +101,7 @@ fn mock_ckb_message() -> String {
     let batch_mint_payload = BatchMintSudt {
         batch: vec![mint_payload.clone(), mint_payload],
     };
-    let batch_mint_payload = batch_mint_payload.encode_fixed().unwrap();
+    let batch_mint_payload = Bytes::from(serde_json::to_vec(&batch_mint_payload).unwrap());
     let ckb_message_payload = "0x".to_owned() + &hex::encode(batch_mint_payload.clone());
     let payload_hash = Hash::digest(batch_mint_payload);
     let hash_value = HashValue::try_from(payload_hash.as_bytes().as_ref()).unwrap();

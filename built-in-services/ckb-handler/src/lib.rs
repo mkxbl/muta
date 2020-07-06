@@ -126,7 +126,8 @@ impl<SDK: ServiceSDK> CKBHandler<SDK> {
         let payload = msg
             .as_bytes()
             .map_err(|e| ServiceError::InvalidMessagePayload(format!("{}", e)))?;
-        let payload: BatchMintSudt = rlp::decode(payload.as_ref())
+
+        let payload: BatchMintSudt = serde_json::from_slice(payload.as_ref())
             .map_err(|e| ServiceError::InvalidMessagePayload(format!("{}", e)))?;
 
         let payload_json = serde_json::to_string(&payload)
