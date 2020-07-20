@@ -9,7 +9,7 @@ use protocol::fixed_codec::FixedCodec;
 use protocol::traits::{
     Context, ExecutorParams, ExecutorResp, Synchronization, SynchronizationAdapter,
 };
-use protocol::types::{Block, Hash, Proof, Receipt, SignedTransaction, BlockHookReceipt};
+use protocol::types::{Block, BlockHookReceipt, Hash, Proof, Receipt, SignedTransaction};
 use protocol::ProtocolResult;
 
 use crate::engine::generate_new_crypto_map;
@@ -373,7 +373,9 @@ impl<Adapter: SynchronizationAdapter> OverlordSynchronization<Adapter> {
     ) -> ProtocolResult<()> {
         self.adapter.save_signed_txs(ctx.clone(), txs).await?;
         self.adapter.save_receipts(ctx.clone(), receipts).await?;
-        self.adapter.save_hook_receipt(ctx.clone(), hook_receipt).await?;
+        self.adapter
+            .save_hook_receipt(ctx.clone(), hook_receipt)
+            .await?;
         self.adapter
             .save_proof(ctx.clone(), block.header.proof.clone())
             .await?;
